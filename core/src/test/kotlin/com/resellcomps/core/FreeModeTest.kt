@@ -117,6 +117,12 @@ class FreeModeTest {
         assertEquals("bose quietcomfort 35 ii 789564", q)
     }
 
+    @Test fun quickButtonsOpenActiveAndSoldSearches() {
+        assertEquals("https://www.ebay.com/sch/i.html?_nkw=vintage+hanes+beefy", SoldSearchLinks.ebayActive("vintage hanes beefy"))
+        val sold = SoldSearchLinks.ebaySold("bose 700")
+        assertTrue(sold.contains("_nkw=bose+700") && sold.contains("LH_Sold=1") && sold.contains("LH_Complete=1"))
+    }
+
     @Test fun soldLinksAreEncoded() {
         val links = SoldSearchLinks.forQuery("air max 90")
         assertTrue(links.first().second.contains("_nkw=air+max+90"))

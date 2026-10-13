@@ -29,7 +29,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -47,7 +46,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.resellcomps.app.MainViewModel
-import com.resellcomps.app.Mode
 import com.resellcomps.core.ClaudeService
 import java.io.File
 
@@ -55,7 +53,6 @@ import java.io.File
 fun HomeScreen(vm: MainViewModel, photos: List<ByteArray>, modifier: Modifier, onNeedKeys: () -> Unit) {
     val context = LocalContext.current
     var pendingUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    var hint by rememberSaveable { mutableStateOf("") }
     val room = ClaudeService.MAX_PHOTOS - photos.size
 
     val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
@@ -111,17 +108,10 @@ fun HomeScreen(vm: MainViewModel, photos: List<ByteArray>, modifier: Modifier, o
         }
 
         if (photos.isNotEmpty()) {
-            val free = vm.settings.mode == Mode.FREE && !vm.settings.aiIdentify
-            OutlinedTextField(
-                value = hint, onValueChange = { hint = it },
-                label = { Text(if (free) "What is it? (helps a lot in free mode)" else "Anything the photos don't show? (optional)") },
-                placeholder = { Text(if (free) "e.g. Patagonia Better Sweater mens M" else "e.g. size M, 256GB, tags attached") },
-                modifier = Modifier.fillMaxWidth(),
-            )
             Button(
-                onClick = { if (vm.hasKeys) vm.identify(hint) else onNeedKeys() },
+                onClick = { if (vm.hasKeys) vm.identify("") else onNeedKeys() },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Identify item") }
+            ) { Text("Identify again with these photos") }
         }
     }
 }

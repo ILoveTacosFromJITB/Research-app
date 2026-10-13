@@ -30,11 +30,6 @@ class Settings(context: Context) {
         get() = str("google_vision_key")
         set(v) = put("google_vision_key", v)
 
-    /** Free mode: name the item with the cheapest Claude model (needs an Anthropic key). */
-    var aiIdentify: Boolean
-        get() = prefs.getBoolean("ai_identify", false)
-        set(v) = prefs.edit().putBoolean("ai_identify", v).apply()
-
     var readSoldPage: Boolean
         get() = prefs.getBoolean("read_sold_page", false)
         set(v) = prefs.edit().putBoolean("read_sold_page", v).apply()

@@ -107,6 +107,12 @@ object EbaySoldPage {
 
 /** One-tap sold searches on other sites, so the user can see the proof there. */
 object SoldSearchLinks {
+    /** eBay's normal search: what's listed right now. */
+    fun ebayActive(query: String): String =
+        "https://www.ebay.com/sch/i.html?_nkw=${URLEncoder.encode(query, "UTF-8")}"
+
+    fun ebaySold(query: String): String = EbaySoldPage.searchUrl(query)
+
     fun forQuery(query: String): List<Pair<String, String>> {
         val q = URLEncoder.encode(query, "UTF-8")
         return listOf(

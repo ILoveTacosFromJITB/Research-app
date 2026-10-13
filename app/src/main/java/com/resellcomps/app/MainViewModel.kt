@@ -41,12 +41,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Free mode works with no keys at all; Pro mode needs an Anthropic key. */
     val hasKeys: Boolean get() = settings.mode == Mode.FREE || settings.anthropicKey.isNotBlank()
 
-    /** True when a free-mode search would not touch the internet at all. */
-    val freeModeOffline: Boolean
-        get() = settings.mode == Mode.FREE && !settings.hasEbayKeys && !settings.readSoldPage
-
+    /** In free mode, an Anthropic key (if entered) is used to name the item with the cheapest model. */
     private val useAiInFree: Boolean
-        get() = settings.mode == Mode.FREE && settings.aiIdentify && settings.anthropicKey.isNotBlank()
+        get() = settings.mode == Mode.FREE && settings.anthropicKey.isNotBlank()
 
     private fun proFinder() = CompsFinder(
         claude = ClaudeService(settings.anthropicKey, settings.model),
@@ -98,9 +95,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             runCatching {
                 withContext(Dispatchers.IO) { uris.map { Images.loadJpeg(getApplication(), it) } }
             }
-                .onSuccess { _photos.value = (_photos.value + it).take(ClaudeService.MAX_PHOTOS); _screen.value = Screen.Home }
+                .onSuccess {
+                    _photos.value = (_photos.value + it).take(ClaudeService.MAX_PHOTOS)
+                    // No extra tap: identify as soon as a photo is in.
+                    if (hasKeys) identify("") else _screen.value = Screen.Home
+                }
                 .onFailure { _screen.value = Screen.Failed("Couldn't read that photo: ${it.message}", false) }
         }
+    }
+
+    /** Back to the photo screen keeping the photos, e.g. to add a close-up of the tag. */
+    fun backToPhotos() {
+        _screen.value = Screen.Home
     }
 
     fun removePhoto(index: Int) {

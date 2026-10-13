@@ -3,6 +3,16 @@
 An Android app for resellers: take a photo of an item (clothes, electronics, anything) and get
 **real sold and active listings** for it, with a price only when listings back it up.
 
+## Quick use
+
+Take a photo. The app identifies the item right away and writes the search the way a reseller
+would type it (e.g. "vintage hanes beefy", "bose 700"). Tap **eBay Active** or **eBay Sold** to open
+eBay's results for it, or Poshmark/Mercari sold. If it can't read enough, tap **Add tag photo** and
+take a close-up of the tag or label. **Show prices in the app** runs the full comps lookup below.
+
+With an Anthropic key in Settings, Claude's cheapest model writes the search (most accurate, roughly a
+tenth of a cent per scan); without one, the built-in visual search and on-phone tag reading do it.
+
 ## Two modes
 
 Take up to **6 photos** of an item (front, back, brand tag, label, model number, barcode). Every

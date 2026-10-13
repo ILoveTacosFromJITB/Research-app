@@ -285,9 +285,15 @@ class ClaudeService(
             number, size, color, material, edition or year. Read any visible labels, tags, logos or
             model numbers. Do not guess a brand or model you cannot see evidence for; leave it null
             and lower your confidence instead. Never estimate a price or value.
-            search_query is what a reseller would type into eBay to find this exact item: the most
-            identifying terms only, usually 3-8 words, no condition words. If the photo does not
-            show an identifiable item, set identified to false and explain in details.
+            search_query is exactly what an experienced reseller would type into eBay's search box,
+            built from what is visible: brand first, then the product line, tag name or model
+            number, then at most one or two key descriptors. Keep it short, usually 2-5 words, all
+            lowercase. Copy model numbers exactly as printed. Add "vintage" only when the tag or
+            construction clearly looks vintage (for example single-stitch tees or old-style tags).
+            Leave out size, color and condition unless they change what the item is. Examples:
+            "vintage hanes beefy", "bose 700", "nike air max 90", "patagonia better sweater",
+            "levis 501 big e", "sony wh-1000xm4". If the photo does not show an identifiable item,
+            set identified to false and explain in details.
         """.trimIndent()
 
         private val IDENTIFY_SCHEMA = obj(mapOf(

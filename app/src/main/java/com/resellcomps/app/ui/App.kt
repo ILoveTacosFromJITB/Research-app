@@ -103,9 +103,8 @@ fun App(vm: MainViewModel) {
                     is Screen.Busy -> BusyScreen(s.message, modifier)
                     is Screen.Identified -> IdentifiedScreen(
                         s.item, photos, modifier,
-                        offlineWarning = vm.freeModeOffline,
                         onSearch = vm::search, onRetake = vm::reset,
-                        onOpenSettings = { showSettings = true },
+                        onAddPhoto = vm::backToPhotos,
                     )
                     is Screen.Results -> ResultsScreen(s.report, modifier, onEditSearch = vm::editSearch, onNewItem = vm::reset)
                     is Screen.Failed -> FailedScreen(s, modifier, onBack = { if (s.canRetrySearch) vm.editSearch() else vm.reset() })
@@ -148,7 +147,6 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
     var ebayId by remember { mutableStateOf(st.ebayClientId) }
     var ebaySecret by remember { mutableStateOf(st.ebayClientSecret) }
     var readSold by remember { mutableStateOf(st.readSoldPage) }
-    var aiIdentify by remember { mutableStateOf(st.aiIdentify) }
     var visionKey by remember { mutableStateOf(st.googleVisionKey) }
     var anthropic by remember { mutableStateOf(st.anthropicKey) }
     var serp by remember { mutableStateOf(st.serpApiKey) }
@@ -206,26 +204,20 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Identify with AI (much more accurate)", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "Uses Claude's cheapest model to name the item from your photos — roughly a tenth of a cent " +
-                            "per scan on your own Anthropic account. Without it, free mode can only read barcodes and printed text.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Switch(checked = aiIdentify, onCheckedChange = { aiIdentify = it })
-            }
-            if (aiIdentify) {
-                OutlinedTextField(
-                    value = anthropic, onValueChange = { anthropic = it },
-                    label = { Text("Anthropic API key") },
-                    supportingText = { Text("console.anthropic.com — set a small spend limit there if you like") },
-                    visualTransformation = PasswordVisualTransformation(), singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            Text("AI naming (optional, most accurate)", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Add an Anthropic key and the app reads tags, logos and model numbers like you would and writes " +
+                    "the search for you (e.g. \"vintage hanes beefy\", \"bose 700\"). Uses Claude's cheapest model, " +
+                    "roughly a tenth of a cent per scan.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            OutlinedTextField(
+                value = anthropic, onValueChange = { anthropic = it },
+                label = { Text("Anthropic API key") },
+                supportingText = { Text("console.anthropic.com → API Keys") },
+                visualTransformation = PasswordVisualTransformation(), singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Read eBay sold prices automatically", style = MaterialTheme.typography.bodyLarge)
@@ -270,7 +262,6 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
                 st.ebayClientId = ebayId
                 st.ebayClientSecret = ebaySecret
                 st.readSoldPage = readSold
-                st.aiIdentify = aiIdentify
                 st.googleVisionKey = visionKey
                 st.anthropicKey = anthropic
                 st.serpApiKey = serp
@@ -278,7 +269,7 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
                 st.seenSettings = true
                 onDone()
             },
-            enabled = if (mode == Mode.FREE) !aiIdentify || anthropic.isNotBlank() else anthropic.isNotBlank(),
+            enabled = mode == Mode.FREE || anthropic.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Save") }
         OutlinedButton(onClick = { st.seenSettings = true; onDone() }, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
