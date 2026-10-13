@@ -25,6 +25,11 @@ class Settings(context: Context) {
         get() = str("ebay_client_secret")
         set(v) = put("ebay_client_secret", v)
 
+    /** Built-in Lens: Google Cloud Vision web detection. */
+    var googleVisionKey: String
+        get() = str("google_vision_key")
+        set(v) = put("google_vision_key", v)
+
     /** Free mode: name the item with the cheapest Claude model (needs an Anthropic key). */
     var aiIdentify: Boolean
         get() = prefs.getBoolean("ai_identify", false)

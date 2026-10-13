@@ -149,6 +149,7 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
     var ebaySecret by remember { mutableStateOf(st.ebayClientSecret) }
     var readSold by remember { mutableStateOf(st.readSoldPage) }
     var aiIdentify by remember { mutableStateOf(st.aiIdentify) }
+    var visionKey by remember { mutableStateOf(st.googleVisionKey) }
     var anthropic by remember { mutableStateOf(st.anthropicKey) }
     var serp by remember { mutableStateOf(st.serpApiKey) }
     var model by remember { mutableStateOf(st.model) }
@@ -174,6 +175,20 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
         HorizontalDivider()
         if (mode == Mode.FREE) {
             Text("Free mode", style = MaterialTheme.typography.titleMedium)
+            Text("Built-in visual search (like Google Lens)", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Finds the same item on the web from your photo, names it, then searches sold and active " +
+                    "listings automatically. Uses Google Cloud Vision: 1,000 free lookups a month (about 500 scans). " +
+                    "Get a key at console.cloud.google.com → enable \"Cloud Vision API\" → Credentials → Create API key. " +
+                    "Google asks for a card on file; set a budget alert to stay free.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            OutlinedTextField(
+                value = visionKey, onValueChange = { visionKey = it },
+                label = { Text("Google Cloud Vision API key") }, singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
+            )
             Text(
                 "Optional but recommended: free eBay developer keys turn on active listings and eBay photo search. " +
                     "Sign up at developer.ebay.com, create a Production keyset, and paste the App ID (Client ID) " +
@@ -256,6 +271,7 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
                 st.ebayClientSecret = ebaySecret
                 st.readSoldPage = readSold
                 st.aiIdentify = aiIdentify
+                st.googleVisionKey = visionKey
                 st.anthropicKey = anthropic
                 st.serpApiKey = serp
                 st.model = model

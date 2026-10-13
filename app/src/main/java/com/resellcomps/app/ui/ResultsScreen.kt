@@ -20,7 +20,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -53,8 +53,9 @@ fun ResultsScreen(report: CompsReport, modifier: Modifier, onEditSearch: () -> U
     val sold = matched.filter { it.listing.status == ListingStatus.SOLD }.sortedBy { it.listing.price }
     val active = matched.filter { it.listing.status == ListingStatus.ACTIVE }.sortedBy { it.listing.price }
     val rejected = report.checked.filterNot { it.isMatch }
+    val lens = report.item.visualMatches
     var tab by rememberSaveable { mutableIntStateOf(0) }
-    val shown = when (tab) { 0 -> sold; 1 -> active; else -> rejected }
+    val shown = when (tab) { 0 -> sold; 1 -> active; 2 -> emptyList(); else -> rejected }
 
     LazyColumn(modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
@@ -85,13 +86,25 @@ fun ResultsScreen(report: CompsReport, modifier: Modifier, onEditSearch: () -> U
             }
         }
         item {
-            TabRow(selectedTabIndex = tab) {
+            ScrollableTabRow(selectedTabIndex = tab, edgePadding = 0.dp) {
                 Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Sold (${sold.size})") })
                 Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Active (${active.size})") })
-                Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("Excluded (${rejected.size})") })
+                Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("Lens (${lens.size})") })
+                Tab(selected = tab == 3, onClick = { tab = 3 }, text = { Text("Excluded (${rejected.size})") })
             }
         }
-        if (tab == 2 && rejected.isNotEmpty()) {
+        if (tab == 2) {
+            item {
+                Text(
+                    if (lens.isEmpty()) "No visual matches. Add a Google Vision key in Settings to turn on built-in visual search."
+                    else "Pages showing the same item, like Google Lens. Prices aren't read from these; tap to view. " +
+                        "They are not used in any price.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            items(lens, key = { "lens:" + it.url }) { VisualMatchCard(it) }
+        }
+        if (tab == 3 && rejected.isNotEmpty()) {
             item {
                 Text(
                     "Listings found but judged not the same item. They are not used in any price.",
@@ -99,7 +112,7 @@ fun ResultsScreen(report: CompsReport, modifier: Modifier, onEditSearch: () -> U
                 )
             }
         }
-        if (shown.isEmpty()) {
+        if (shown.isEmpty() && tab != 2) {
             item {
                 Text(
                     when (tab) {

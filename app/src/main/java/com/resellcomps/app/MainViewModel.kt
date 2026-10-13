@@ -10,6 +10,7 @@ import com.resellcomps.core.CompsReport
 import com.resellcomps.core.EbayBrowseApi
 import com.resellcomps.core.FreeCompsFinder
 import com.resellcomps.core.FreeIdentification
+import com.resellcomps.core.GoogleVision
 import com.resellcomps.core.ItemIdentification
 import com.resellcomps.core.SerpApiEbay
 import kotlinx.coroutines.Dispatchers
@@ -59,7 +60,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         soldPageReader = if (settings.readSoldPage) SoldPageReader(getApplication())::read else null,
     )
 
-    /** Free identification: on-phone barcode/text/label reading, plus eBay barcode and photo matches when keys are set. */
+    /** Built-in Lens: where these photos appear on the web. Null when no key is set; errors become a note. */
+    private fun lens(photos: List<ByteArray>): Pair<GoogleVision.Result?, String?> {
+        val key = settings.googleVisionKey.takeIf { it.isNotBlank() } ?: return null to null
+        return runCatching { GoogleVision(key).detect(photos.take(2)) }
+            .fold({ it to null }, { null to "Visual search failed: ${it.message}" })
+    }
+
+    /** Free identification: on-phone barcode/text reading, built-in Lens, and eBay barcode/photo matches. */
     private suspend fun identifyFree(photos: List<ByteArray>): ItemIdentification {
         val reads = photos.map { OnDeviceReader.read(it) }
         val seen = OnDeviceReader.Result(
@@ -70,13 +78,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val jpeg = photos.first()
         val ebay = ebayApi()
         return withContext(Dispatchers.IO) {
+            val (vision, visionError) = lens(photos)
             val barcodeTitles = if (ebay != null && seen.gtin != null) {
                 runCatching { ebay.search(null, seen.gtin, limit = 20).map { it.title } }.getOrDefault(emptyList())
             } else emptyList()
-            val similarTitles = if (ebay != null && barcodeTitles.isEmpty()) {
+            val needSimilar = barcodeTitles.isEmpty() && (vision == null || vision.isEmpty())
+            val similarTitles = if (ebay != null && needSimilar) {
                 runCatching { ebay.searchByImage(jpeg, limit = 12).map { it.title } }.getOrDefault(emptyList())
             } else emptyList()
-            FreeIdentification.build(seen.gtin, seen.textLines, seen.labels, barcodeTitles, similarTitles)
+            val id = FreeIdentification.build(seen.gtin, seen.textLines, seen.labels, barcodeTitles, similarTitles, vision)
+            if (visionError != null) id.copy(details = id.details + "\n" + visionError) else id
         }
     }
 
@@ -103,7 +114,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             runCatching {
                 if (useAiInFree) {
                     withContext(Dispatchers.IO) {
-                        ClaudeService(settings.anthropicKey, ClaudeService.LOW_COST_MODEL).identify(photos, hint)
+                        val named = ClaudeService(settings.anthropicKey, ClaudeService.LOW_COST_MODEL).identify(photos, hint)
+                        // Keep the Lens matches alongside the AI's name.
+                        named.copy(visualMatches = lens(photos).first?.matches.orEmpty())
                     }
                 } else if (settings.mode == Mode.FREE) {
                     identifyFree(photos).let { id ->
@@ -115,7 +128,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                 } else {
-                    withContext(Dispatchers.IO) { proFinder().identify(photos, hint) }
+                    withContext(Dispatchers.IO) {
+                        proFinder().identify(photos, hint).copy(visualMatches = lens(photos).first?.matches.orEmpty())
+                    }
                 }
             }
                 .onSuccess { lastItem = it; _screen.value = Screen.Identified(it) }

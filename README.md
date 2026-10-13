@@ -6,8 +6,15 @@ An Android app for resellers: take a photo of an item (clothes, electronics, any
 ## Two modes
 
 Take up to **6 photos** of an item (front, back, brand tag, label, model number, barcode). Every
-photo is used to identify it. If the name looks wrong, the **Google Lens** button sends the photo to
-Google's visual web search so you can copy the exact name into the search box.
+photo is used to identify it.
+
+**Built-in visual search (like Google Lens).** With a Google Cloud Vision key, the app finds pages
+showing the same item on the web (marketplace listings first), takes Google's best guess and the brand
+logo, builds the search from the listings of the same photo, and then pulls sold and active comps
+automatically. The matches are listed in a **Lens** tab. Cloud Vision gives 1,000 free lookups per
+month; the app uses 2 per scan (first two photos). To get a key: https://console.cloud.google.com →
+enable *Cloud Vision API* → *Credentials* → *Create API key*. Google requires a card on file; set a
+budget alert to stay in the free tier.
 
 **Free (default): costs nothing to run**
 - **Identify:** on the phone (Google ML Kit, no account needed) it reads **barcodes** and **text on

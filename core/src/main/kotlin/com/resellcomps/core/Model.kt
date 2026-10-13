@@ -12,6 +12,8 @@ data class ItemIdentification(
     val identified: Boolean,
     /** UPC/EAN read from a barcode in the photo, if any. */
     val gtin: String? = null,
+    /** Pages showing the same image (built-in Lens results). */
+    val visualMatches: List<VisualMatch> = emptyList(),
 )
 
 enum class ListingStatus { SOLD, ACTIVE }

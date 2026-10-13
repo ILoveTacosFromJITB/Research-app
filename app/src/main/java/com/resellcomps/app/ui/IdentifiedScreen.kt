@@ -58,14 +58,20 @@ fun IdentifiedScreen(
                 Text("ID confidence: ${item.confidence}", style = MaterialTheme.typography.labelMedium)
             }
         }
+        if (item.visualMatches.isNotEmpty()) {
+            Text("Same photo found on the web", style = MaterialTheme.typography.titleSmall)
+            item.visualMatches.take(6).forEach { VisualMatchCard(it) }
+            if (item.visualMatches.size > 6) {
+                Text(
+                    "+${item.visualMatches.size - 6} more — all shown on the results page.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
         OutlinedButton(
             onClick = { photos.firstOrNull()?.let { GoogleLens.open(context, it) } },
             modifier = Modifier.fillMaxWidth(),
-        ) { Text("Not right? Search this photo with Google Lens") }
-        Text(
-            "Google Lens searches the whole web by image. Copy the exact name it finds into the box below.",
-            style = MaterialTheme.typography.bodySmall,
-        )
+        ) { Text("Still not right? Open in the Google Lens app") }
         if (offlineWarning) {
             Card(
                 Modifier.fillMaxWidth(),

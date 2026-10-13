@@ -17,13 +17,19 @@ object FreeIdentification {
         objectLabels: List<String>,
         barcodeTitles: List<String>,
         similarTitles: List<String>,
+        vision: GoogleVision.Result? = null,
     ): ItemIdentification {
         val fromBarcode = commonWords(barcodeTitles, minShare = 0.5)
+        val fromVision = vision?.let(GoogleVision::query).orEmpty()
         val fromText = queryFromText(textLines)
         val fromSimilar = commonWords(similarTitles.take(12), minShare = 0.5)
 
         val (query, source, confidence) = when {
             fromBarcode.isNotBlank() -> Triple(fromBarcode, "barcode match on eBay", "high")
+            fromVision.isNotBlank() -> Triple(
+                fromVision, "visual search (same image found on the web)",
+                if (vision!!.matches.count { it.isMarketplace } >= 2) "high" else "medium",
+            )
             fromText.isNotBlank() && fromSimilar.isNotBlank() -> Triple(mergeQueries(fromText, fromSimilar), "label text + similar eBay listings", "medium")
             fromText.isNotBlank() -> Triple(fromText, "label text", "low")
             fromSimilar.isNotBlank() -> Triple(fromSimilar, "similar-looking eBay listings", "low")
@@ -31,6 +37,9 @@ object FreeIdentification {
         }
         val details = buildList {
             gtin?.let { add("Barcode: $it") }
+            vision?.bestGuesses?.firstOrNull()?.let { add("Google's best guess: $it") }
+            vision?.logos?.takeIf { it.isNotEmpty() }?.let { add("Logo: " + it.joinToString(", ")) }
+            vision?.entities?.takeIf { it.isNotEmpty() }?.let { add("Related: " + it.take(5).joinToString(", ")) }
             if (textLines.isNotEmpty()) add("Text on item: " + textLines.sortedByDescending { it.height }.take(6).joinToString(" | ") { it.text })
             if (objectLabels.isNotEmpty()) add("Looks like: " + objectLabels.take(3).joinToString(", "))
             add(if (query.isBlank()) "Couldn't work out the item — please type what it is." else "Search built from $source. Check it before searching.")
@@ -46,6 +55,7 @@ object FreeIdentification {
             confidence = confidence,
             identified = query.isNotBlank(),
             gtin = gtin,
+            visualMatches = vision?.matches.orEmpty(),
         )
     }
 
