@@ -6,6 +6,7 @@
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <queries>
+        <package android:name="com.google.android.googlequicksearchbox" />
         <intent>
             <action android:name="android.media.action.IMAGE_CAPTURE" />
         </intent>

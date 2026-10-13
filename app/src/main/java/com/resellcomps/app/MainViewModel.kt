@@ -32,13 +32,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _screen = MutableStateFlow<Screen>(Screen.Home)
     val screen: StateFlow<Screen> = _screen
 
-    private val _photo = MutableStateFlow<ByteArray?>(null)
-    val photo: StateFlow<ByteArray?> = _photo
+    private val _photos = MutableStateFlow<List<ByteArray>>(emptyList())
+    val photos: StateFlow<List<ByteArray>> = _photos
 
     private var lastItem: ItemIdentification? = null
 
     /** Free mode works with no keys at all; Pro mode needs an Anthropic key. */
     val hasKeys: Boolean get() = settings.mode == Mode.FREE || settings.anthropicKey.isNotBlank()
+
+    /** True when a free-mode search would not touch the internet at all. */
+    val freeModeOffline: Boolean
+        get() = settings.mode == Mode.FREE && !settings.hasEbayKeys && !settings.readSoldPage
+
+    private val useAiInFree: Boolean
+        get() = settings.mode == Mode.FREE && settings.aiIdentify && settings.anthropicKey.isNotBlank()
 
     private fun proFinder() = CompsFinder(
         claude = ClaudeService(settings.anthropicKey, settings.model),
@@ -53,8 +60,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     /** Free identification: on-phone barcode/text/label reading, plus eBay barcode and photo matches when keys are set. */
-    private suspend fun identifyFree(jpeg: ByteArray): ItemIdentification {
-        val seen = OnDeviceReader.read(jpeg)
+    private suspend fun identifyFree(photos: List<ByteArray>): ItemIdentification {
+        val reads = photos.map { OnDeviceReader.read(it) }
+        val seen = OnDeviceReader.Result(
+            gtin = reads.firstNotNullOfOrNull { it.gtin },
+            textLines = reads.flatMap { it.textLines },
+            labels = reads.flatMap { it.labels }.distinct(),
+        )
+        val jpeg = photos.first()
         val ebay = ebayApi()
         return withContext(Dispatchers.IO) {
             val barcodeTitles = if (ebay != null && seen.gtin != null) {
@@ -67,22 +80,33 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun onPhoto(uri: Uri) {
+    fun addPhotos(uris: List<Uri>) {
+        if (uris.isEmpty()) return
         viewModelScope.launch {
             _screen.value = Screen.Busy("Loading photo…")
-            runCatching { withContext(Dispatchers.IO) { Images.loadJpeg(getApplication(), uri) } }
-                .onSuccess { _photo.value = it; _screen.value = Screen.Home }
+            runCatching {
+                withContext(Dispatchers.IO) { uris.map { Images.loadJpeg(getApplication(), it) } }
+            }
+                .onSuccess { _photos.value = (_photos.value + it).take(ClaudeService.MAX_PHOTOS); _screen.value = Screen.Home }
                 .onFailure { _screen.value = Screen.Failed("Couldn't read that photo: ${it.message}", false) }
         }
     }
 
+    fun removePhoto(index: Int) {
+        _photos.value = _photos.value.filterIndexed { i, _ -> i != index }
+    }
+
     fun identify(hint: String) {
-        val jpeg = _photo.value ?: return
+        val photos = _photos.value.takeIf { it.isNotEmpty() } ?: return
         viewModelScope.launch {
             _screen.value = Screen.Busy("Identifying the item…")
             runCatching {
-                if (settings.mode == Mode.FREE) {
-                    identifyFree(jpeg).let { id ->
+                if (useAiInFree) {
+                    withContext(Dispatchers.IO) {
+                        ClaudeService(settings.anthropicKey, ClaudeService.LOW_COST_MODEL).identify(photos, hint)
+                    }
+                } else if (settings.mode == Mode.FREE) {
+                    identifyFree(photos).let { id ->
                         when {
                             hint.isBlank() -> id
                             // Nothing readable on the item: the seller's note becomes the search.
@@ -91,7 +115,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         }
                     }
                 } else {
-                    withContext(Dispatchers.IO) { proFinder().identify(jpeg, hint) }
+                    withContext(Dispatchers.IO) { proFinder().identify(photos, hint) }
                 }
             }
                 .onSuccess { lastItem = it; _screen.value = Screen.Identified(it) }
@@ -100,15 +124,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun search(item: ItemIdentification, query: String) {
-        val jpeg = _photo.value ?: return
+        val photos = _photos.value.takeIf { it.isNotEmpty() } ?: return
         lastItem = item
         viewModelScope.launch {
             _screen.value = Screen.Busy("Searching…")
             runCatching {
                 withContext(Dispatchers.IO) {
                     val progress = { msg: String -> _screen.value = Screen.Busy(msg) }
-                    if (settings.mode == Mode.FREE) freeFinder().findComps(jpeg, item, query, progress)
-                    else proFinder().findComps(jpeg, item, query, progress)
+                    if (settings.mode == Mode.FREE) freeFinder().findComps(photos, item, query, progress)
+                    else proFinder().findComps(photos, item, query, progress)
                 }
             }
                 .onSuccess { _screen.value = Screen.Results(it) }
@@ -122,7 +146,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun reset() {
-        _photo.value = null
+        _photos.value = emptyList()
         lastItem = null
         _screen.value = Screen.Home
     }

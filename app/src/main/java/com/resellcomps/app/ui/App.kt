@@ -59,10 +59,10 @@ fun App(vm: MainViewModel) {
 
     MaterialTheme(colorScheme = colors) {
         val screen by vm.screen.collectAsState()
-        val photo by vm.photo.collectAsState()
+        val photos by vm.photos.collectAsState()
         var showSettings by rememberSaveable { mutableStateOf(!vm.settings.seenSettings) }
 
-        BackHandler(enabled = showSettings || screen !is Screen.Home || photo != null) {
+        BackHandler(enabled = showSettings || screen !is Screen.Home || photos.isNotEmpty()) {
             when {
                 showSettings -> showSettings = false
                 screen is Screen.Results -> vm.editSearch()
@@ -75,7 +75,7 @@ fun App(vm: MainViewModel) {
                 TopAppBar(
                     title = { Text(if (showSettings) "Settings" else "Resell Comps") },
                     navigationIcon = {
-                        if (showSettings || screen !is Screen.Home || photo != null) {
+                        if (showSettings || screen !is Screen.Home || photos.isNotEmpty()) {
                             IconButton(onClick = {
                                 when {
                                     showSettings -> showSettings = false
@@ -99,9 +99,14 @@ fun App(vm: MainViewModel) {
             when {
                 showSettings -> SettingsScreen(vm, modifier) { showSettings = false }
                 else -> when (val s = screen) {
-                    Screen.Home -> HomeScreen(vm, photo, modifier, onNeedKeys = { showSettings = true })
+                    Screen.Home -> HomeScreen(vm, photos, modifier, onNeedKeys = { showSettings = true })
                     is Screen.Busy -> BusyScreen(s.message, modifier)
-                    is Screen.Identified -> IdentifiedScreen(s.item, photo, modifier, onSearch = vm::search, onRetake = vm::reset)
+                    is Screen.Identified -> IdentifiedScreen(
+                        s.item, photos, modifier,
+                        offlineWarning = vm.freeModeOffline,
+                        onSearch = vm::search, onRetake = vm::reset,
+                        onOpenSettings = { showSettings = true },
+                    )
                     is Screen.Results -> ResultsScreen(s.report, modifier, onEditSearch = vm::editSearch, onNewItem = vm::reset)
                     is Screen.Failed -> FailedScreen(s, modifier, onBack = { if (s.canRetrySearch) vm.editSearch() else vm.reset() })
                 }
@@ -143,6 +148,7 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
     var ebayId by remember { mutableStateOf(st.ebayClientId) }
     var ebaySecret by remember { mutableStateOf(st.ebayClientSecret) }
     var readSold by remember { mutableStateOf(st.readSoldPage) }
+    var aiIdentify by remember { mutableStateOf(st.aiIdentify) }
     var anthropic by remember { mutableStateOf(st.anthropicKey) }
     var serp by remember { mutableStateOf(st.serpApiKey) }
     var model by remember { mutableStateOf(st.model) }
@@ -161,7 +167,7 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
         ModeOption(
             selected = mode == Mode.PRO, onClick = { mode = Mode.PRO },
             title = "Pro (paid APIs)",
-            body = "AI identifies anything from the photo, pulls eBay sold data and searches the whole web. " +
+            body = "AI identifies anything from your photos, pulls eBay sold data and searches the whole web. " +
                 "Costs a few cents per scan on your own API accounts.",
         )
 
@@ -185,6 +191,26 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
             )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Identify with AI (much more accurate)", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Uses Claude's cheapest model to name the item from your photos — roughly a tenth of a cent " +
+                            "per scan on your own Anthropic account. Without it, free mode can only read barcodes and printed text.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(checked = aiIdentify, onCheckedChange = { aiIdentify = it })
+            }
+            if (aiIdentify) {
+                OutlinedTextField(
+                    value = anthropic, onValueChange = { anthropic = it },
+                    label = { Text("Anthropic API key") },
+                    supportingText = { Text("console.anthropic.com — set a small spend limit there if you like") },
+                    visualTransformation = PasswordVisualTransformation(), singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Read eBay sold prices automatically", style = MaterialTheme.typography.bodyLarge)
@@ -229,13 +255,14 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
                 st.ebayClientId = ebayId
                 st.ebayClientSecret = ebaySecret
                 st.readSoldPage = readSold
+                st.aiIdentify = aiIdentify
                 st.anthropicKey = anthropic
                 st.serpApiKey = serp
                 st.model = model
                 st.seenSettings = true
                 onDone()
             },
-            enabled = mode == Mode.FREE || anthropic.isNotBlank(),
+            enabled = if (mode == Mode.FREE) !aiIdentify || anthropic.isNotBlank() else anthropic.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Save") }
         OutlinedButton(onClick = { st.seenSettings = true; onDone() }, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }

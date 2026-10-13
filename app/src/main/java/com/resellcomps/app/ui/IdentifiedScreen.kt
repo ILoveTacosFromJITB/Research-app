@@ -8,6 +8,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -18,17 +19,21 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.resellcomps.core.ItemIdentification
 
 @Composable
 fun IdentifiedScreen(
     item: ItemIdentification,
-    photo: ByteArray?,
+    photos: List<ByteArray>,
     modifier: Modifier,
+    offlineWarning: Boolean,
     onSearch: (ItemIdentification, String) -> Unit,
     onRetake: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
+    val context = LocalContext.current
     var query by rememberSaveable(item) { mutableStateOf(item.searchQuery) }
     var name by rememberSaveable(item) { mutableStateOf(item.name) }
 
@@ -36,7 +41,7 @@ fun IdentifiedScreen(
         modifier.verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        photo?.let { PhotoPreview(it) }
+        photos.firstOrNull()?.let { PhotoPreview(it) }
         Card(Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
@@ -51,6 +56,29 @@ fun IdentifiedScreen(
                 ).forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
                 if (item.details.isNotBlank()) Text(item.details, style = MaterialTheme.typography.bodySmall)
                 Text("ID confidence: ${item.confidence}", style = MaterialTheme.typography.labelMedium)
+            }
+        }
+        OutlinedButton(
+            onClick = { photos.firstOrNull()?.let { GoogleLens.open(context, it) } },
+            modifier = Modifier.fillMaxWidth(),
+        ) { Text("Not right? Search this photo with Google Lens") }
+        Text(
+            "Google Lens searches the whole web by image. Copy the exact name it finds into the box below.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        if (offlineWarning) {
+            Card(
+                Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            ) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        "Online search is off. With no eBay keys, the app can't look up listings — " +
+                            "you'll only get sold-search buttons.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    OutlinedButton(onClick = onOpenSettings) { Text("Open Settings") }
+                }
             }
         }
         Text(

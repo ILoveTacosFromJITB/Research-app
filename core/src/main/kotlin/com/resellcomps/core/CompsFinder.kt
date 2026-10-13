@@ -12,10 +12,10 @@ class CompsFinder(
     private val ebay: SerpApiEbay?,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    fun identify(jpeg: ByteArray, hint: String? = null): ItemIdentification = claude.identify(jpeg, hint)
+    fun identify(photos: List<ByteArray>, hint: String? = null): ItemIdentification = claude.identify(photos, hint)
 
     fun findComps(
-        jpeg: ByteArray,
+        photos: List<ByteArray>,
         item: ItemIdentification,
         query: String,
         onProgress: (String) -> Unit = {},
@@ -26,7 +26,7 @@ class CompsFinder(
             onProgress("Searching eBay sold & active listings and the web…")
             val sold = ebay?.let { e -> pool.submit(Callable { e.search(query, ListingStatus.SOLD) }) }
             val active = ebay?.let { e -> pool.submit(Callable { e.search(query, ListingStatus.ACTIVE) }) }
-            val web = pool.submit(Callable { claude.findWebComps(jpeg, item, query) })
+            val web = pool.submit(Callable { claude.findWebComps(photos, item, query) })
 
             val all = mutableListOf<Listing>()
             if (ebay == null) notes += "eBay search skipped: add a SerpApi key in Settings for eBay sold data."
@@ -44,7 +44,7 @@ class CompsFinder(
 
             val unique = dedupe(all)
             onProgress("Checking ${unique.size} listings against your photo…")
-            val checked = if (unique.isEmpty()) emptyList() else claude.checkMatches(jpeg, item, unique)
+            val checked = if (unique.isEmpty()) emptyList() else claude.checkMatches(photos, item, unique)
             val matched = checked.filter { it.isMatch }.map { it.listing }
             onProgress("Done")
             return CompsReport(

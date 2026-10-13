@@ -5,10 +5,17 @@ An Android app for resellers: take a photo of an item (clothes, electronics, any
 
 ## Two modes
 
+Take up to **6 photos** of an item (front, back, brand tag, label, model number, barcode). Every
+photo is used to identify it. If the name looks wrong, the **Google Lens** button sends the photo to
+Google's visual web search so you can copy the exact name into the search box.
+
 **Free (default): costs nothing to run**
 - **Identify:** on the phone (Google ML Kit, no account needed) it reads **barcodes** and **text on
   labels/tags**, and with eBay keys it also matches the barcode on eBay and runs **eBay photo search**.
   If nothing readable is found, it asks you to type what the item is. It never guesses.
+- **Optional "Identify with AI":** names the item from your photos with Claude's cheapest model,
+  roughly a tenth of a cent per scan on your own Anthropic account. Much more accurate for clothes
+  and anything without a barcode.
 - **Active listings:** eBay's free official Browse API (needs free developer keys, see below).
 - **Sold listings:** one-tap **sold-search buttons** for eBay, Poshmark and Mercari open the real sold
   results. Optionally, **"Read eBay sold prices automatically"** (experimental, off by default) loads

@@ -27,4 +27,9 @@ class ClaudeServiceTest {
         assertEquals("false", item["additionalProperties"]!!.jsonPrimitive.content)
         assertEquals(item["properties"]!!.jsonObject.keys, item["required"]!!.jsonArray.map { it.jsonPrimitive.content }.toSet())
     }
+
+    @Test fun fallbacksOnlyForModelsThatSupportThem() {
+        kotlin.test.assertTrue(ClaudeService.supportsServerFallback(ClaudeService.DEFAULT_MODEL))
+        kotlin.test.assertFalse(ClaudeService.supportsServerFallback(ClaudeService.LOW_COST_MODEL))
+    }
 }

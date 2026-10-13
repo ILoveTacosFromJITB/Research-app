@@ -6,19 +6,27 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -29,7 +37,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -37,39 +48,46 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.resellcomps.app.MainViewModel
 import com.resellcomps.app.Mode
+import com.resellcomps.core.ClaudeService
 import java.io.File
 
 @Composable
-fun HomeScreen(vm: MainViewModel, photo: ByteArray?, modifier: Modifier, onNeedKeys: () -> Unit) {
+fun HomeScreen(vm: MainViewModel, photos: List<ByteArray>, modifier: Modifier, onNeedKeys: () -> Unit) {
     val context = LocalContext.current
     var pendingUri by rememberSaveable { mutableStateOf<Uri?>(null) }
     var hint by rememberSaveable { mutableStateOf("") }
+    val room = ClaudeService.MAX_PHOTOS - photos.size
 
     val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
-        if (ok) pendingUri?.let(vm::onPhoto)
+        if (ok) pendingUri?.let { vm.addPhotos(listOf(it)) }
     }
-    val pickPhoto = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri?.let(vm::onPhoto)
-    }
+    val pickPhotos = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(ClaudeService.MAX_PHOTOS)
+    ) { uris -> vm.addPhotos(uris) }
 
     Column(
         modifier.verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        if (photo == null) {
+        if (photos.isEmpty()) {
             Text("What's it worth?", style = MaterialTheme.typography.headlineSmall)
             Text(
-                "Snap a photo of an item — tip: include the barcode or label/tag if it has one. " +
-                    "The app finds real listings and only gives a price when real listings back it up. " +
-                    "Every price links to its listing.",
+                "Take a few photos of the item: the front, the back, and close-ups of any brand tag, " +
+                    "label, model number or barcode. More angles = a more accurate match. " +
+                    "Prices only come from real listings, and every price links to its listing.",
                 style = MaterialTheme.typography.bodyMedium,
             )
         } else {
-            PhotoPreview(photo)
+            PhotoStrip(photos, onRemove = vm::removePhoto)
+            Text(
+                "${photos.size} of ${ClaudeService.MAX_PHOTOS} photos. Add the tag, label or barcode if you haven't.",
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Button(
+                enabled = room > 0,
                 onClick = {
                     val dir = File(context.cacheDir, "photos").apply { mkdirs() }
                     val file = File(dir, "capture_${System.currentTimeMillis()}.jpg")
@@ -80,10 +98,11 @@ fun HomeScreen(vm: MainViewModel, photo: ByteArray?, modifier: Modifier, onNeedK
                 modifier = Modifier.weight(1f),
             ) {
                 Icon(Icons.Filled.PhotoCamera, contentDescription = null)
-                Text(if (photo == null) "  Take photo" else "  Retake")
+                Text(if (photos.isEmpty()) "  Take photo" else "  Add photo")
             }
             OutlinedButton(
-                onClick = { pickPhoto.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                enabled = room > 0,
+                onClick = { pickPhotos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 modifier = Modifier.weight(1f),
             ) {
                 Icon(Icons.Filled.PhotoLibrary, contentDescription = null)
@@ -91,11 +110,11 @@ fun HomeScreen(vm: MainViewModel, photo: ByteArray?, modifier: Modifier, onNeedK
             }
         }
 
-        if (photo != null) {
-            val free = vm.settings.mode == Mode.FREE
+        if (photos.isNotEmpty()) {
+            val free = vm.settings.mode == Mode.FREE && !vm.settings.aiIdentify
             OutlinedTextField(
                 value = hint, onValueChange = { hint = it },
-                label = { Text(if (free) "What is it? (optional, helps free mode)" else "Anything the photo doesn't show? (optional)") },
+                label = { Text(if (free) "What is it? (helps a lot in free mode)" else "Anything the photos don't show? (optional)") },
                 placeholder = { Text(if (free) "e.g. Patagonia Better Sweater mens M" else "e.g. size M, 256GB, tags attached") },
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -108,13 +127,38 @@ fun HomeScreen(vm: MainViewModel, photo: ByteArray?, modifier: Modifier, onNeedK
 }
 
 @Composable
+private fun PhotoStrip(photos: List<ByteArray>, onRemove: (Int) -> Unit) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        itemsIndexed(photos) { i, photo ->
+            Box {
+                val bitmap = remember(photo) { BitmapFactory.decodeByteArray(photo, 0, photo.size)?.asImageBitmap() }
+                bitmap?.let {
+                    Image(
+                        bitmap = it, contentDescription = "Photo ${i + 1}",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(110.dp).clip(MaterialTheme.shapes.medium),
+                    )
+                }
+                IconButton(
+                    onClick = { onRemove(i) },
+                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(28.dp)
+                        .background(Color.Black.copy(alpha = 0.55f), CircleShape),
+                ) {
+                    Icon(Icons.Filled.Close, contentDescription = "Remove photo", tint = Color.White, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun PhotoPreview(photo: ByteArray) {
     val bitmap = remember(photo) { BitmapFactory.decodeByteArray(photo, 0, photo.size)?.asImageBitmap() }
     bitmap?.let {
         Image(
             bitmap = it, contentDescription = "Your photo",
             contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp),
         )
     }
 }

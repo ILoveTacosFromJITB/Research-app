@@ -40,14 +40,18 @@ class ClaudeService(
 
     // ---------------------------------------------------------------- identify
 
-    fun identify(jpeg: ByteArray, userHint: String? = null): ItemIdentification {
+    fun identify(photos: List<ByteArray>, userHint: String? = null): ItemIdentification {
         val prompt = buildString {
-            append("Identify the item in this photo so a reseller can look up comparable listings.")
+            append(
+                if (photos.size > 1) "These ${photos.size} photos all show the same item (e.g. front, back, tag, label). "
+                else ""
+            )
+            append("Identify the item so a reseller can look up comparable listings.")
             if (!userHint.isNullOrBlank()) append("\n\nThe seller adds: ").append(userHint)
         }
         val params = base(OutputConfig.Effort.MEDIUM, IDENTIFY_SCHEMA)
             .system(IDENTIFY_SYSTEM)
-            .addUserMessageOfBlockParams(listOf(image(jpeg), text(prompt)))
+            .addUserMessageOfBlockParams(images(photos) + text(prompt))
             .build()
         val o = parseJsonText(send(params))
         return ItemIdentification(
@@ -70,7 +74,7 @@ class ClaudeService(
      * Lets Claude search the web for listings, then keeps only the ones whose
      * URL really came back from the search tool.
      */
-    fun findWebComps(jpeg: ByteArray, item: ItemIdentification, query: String): WebCompsResult {
+    fun findWebComps(photos: List<ByteArray>, item: ItemIdentification, query: String): WebCompsResult {
         val prompt = """
             Item: ${item.name}
             Brand: ${item.brand ?: "unknown"} | Model: ${item.model ?: "unknown"} | Category: ${item.category}
@@ -85,7 +89,7 @@ class ClaudeService(
             .system(WEB_SYSTEM)
             .addTool(WebSearchTool20260209.builder().maxUses(6L).build())
             .addTool(SUBMIT_COMPS_TOOL)
-            .addUserMessageOfBlockParams(listOf(image(jpeg), text(prompt)))
+            .addUserMessageOfBlockParams(images(photos) + text(prompt))
 
         val seenUrls = mutableListOf<String>()
         // Server-side search can pause a long turn; resume by sending the turn back.
@@ -138,7 +142,7 @@ class ClaudeService(
      * Asks Claude which listings are the same item as the photo. Only a yes/no
      * per listing comes back; prices are never touched here.
      */
-    fun checkMatches(jpeg: ByteArray, item: ItemIdentification, listings: List<Listing>): List<CheckedListing> {
+    fun checkMatches(photos: List<ByteArray>, item: ItemIdentification, listings: List<Listing>): List<CheckedListing> {
         if (listings.isEmpty()) return emptyList()
         val table = listings.mapIndexed { i, l ->
             "[$i] ${l.marketplace} | ${l.status.name.lowercase()} | ${l.priceText} | " +
@@ -156,7 +160,7 @@ class ClaudeService(
         """.trimIndent()
         val params = base(OutputConfig.Effort.LOW, MATCH_SCHEMA)
             .system(MATCH_SYSTEM)
-            .addUserMessageOfBlockParams(listOf(image(jpeg), text(prompt)))
+            .addUserMessageOfBlockParams(images(photos) + text(prompt))
             .build()
         val verdicts = (parseJsonText(send(params))["verdicts"] as? JsonArray).orEmpty()
             .mapNotNull { it as? JsonObject }
@@ -185,13 +189,16 @@ class ClaudeService(
                     .build()
             )
         }
-        return MessageCreateParams.builder()
+        val builder = MessageCreateParams.builder()
             .model(model)
             .maxTokens(16000L)
             .outputConfig(output.build())
+        if (supportsServerFallback(model)) {
             // If a safety classifier declines, retry server-side on a fallback model.
-            .putAdditionalHeader("anthropic-beta", "server-side-fallback-2026-07-01")
-            .putAdditionalBodyProperty("fallbacks", JsonValue.from("default"))
+            builder.putAdditionalHeader("anthropic-beta", "server-side-fallback-2026-07-01")
+                .putAdditionalBodyProperty("fallbacks", JsonValue.from("default"))
+        }
+        return builder
     }
 
     private fun send(params: MessageCreateParams): Message {
@@ -225,6 +232,9 @@ class ClaudeService(
         }
     }
 
+    private fun images(photos: List<ByteArray>): List<ContentBlockParam> =
+        photos.take(MAX_PHOTOS).map(::image)
+
     private fun image(jpeg: ByteArray) = ContentBlockParam.ofImage(
         ImageBlockParam.builder()
             .source(Base64ImageSource.builder()
@@ -238,6 +248,14 @@ class ClaudeService(
 
     companion object {
         const val DEFAULT_MODEL = "claude-opus-5-5"
+
+        /** Cheapest model; used only to name the item in free mode (no web search). */
+        const val LOW_COST_MODEL = "claude-haiku-5-5"
+
+        const val MAX_PHOTOS = 6
+
+        internal fun supportsServerFallback(model: String) =
+            model.startsWith("claude-opus") || model.startsWith("claude-sonnet") || model.startsWith("claude-fable")
         private const val SUBMIT_COMPS = "submit_comps"
 
         private fun hostOf(url: String) =

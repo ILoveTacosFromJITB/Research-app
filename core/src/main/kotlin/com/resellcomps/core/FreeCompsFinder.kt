@@ -14,7 +14,7 @@ class FreeCompsFinder(
     private val soldPageReader: ((String) -> List<Listing>)?,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
-    fun findComps(jpeg: ByteArray, item: ItemIdentification, query: String, onProgress: (String) -> Unit = {}): CompsReport {
+    fun findComps(photos: List<ByteArray>, item: ItemIdentification, query: String, onProgress: (String) -> Unit = {}): CompsReport {
         val notes = mutableListOf<String>()
         val all = mutableListOf<Listing>()
         val exactUrls = mutableSetOf<String>()
@@ -23,12 +23,13 @@ class FreeCompsFinder(
             onProgress("Searching eBay…")
             val byText = ebay?.let { e -> pool.submit(Callable { e.search(query) }) }
             val byGtin = ebay?.takeIf { item.gtin != null }?.let { e -> pool.submit(Callable { e.search(null, item.gtin) }) }
-            val byImage = ebay?.let { e -> pool.submit(Callable { e.searchByImage(jpeg) }) }
+            // eBay photo search on the first two photos (usually the clearest views of the whole item).
+            val byImage = ebay?.let { e -> photos.take(2).map { p -> pool.submit(Callable { e.searchByImage(p) }) } }.orEmpty()
 
-            if (ebay == null) notes += "Active listings skipped: add your free eBay developer keys in Settings."
+            if (ebay == null) notes += "No online listing search was done: add your free eBay developer keys in Settings."
             byGtin?.let { f -> runCatching { f.get() }.onSuccess { r -> all += r; exactUrls += r.map { it.url } }.onFailure { notes += "eBay barcode search failed: ${rootMessage(it)}" } }
             byText?.let { f -> runCatching { f.get() }.onSuccess { all += it }.onFailure { notes += "eBay search failed: ${rootMessage(it)}" } }
-            byImage?.let { f -> runCatching { f.get() }.onSuccess { all += it }.onFailure { notes += "eBay photo search failed: ${rootMessage(it)}" } }
+            byImage.forEach { f -> runCatching { f.get() }.onSuccess { all += it }.onFailure { notes += "eBay photo search failed: ${rootMessage(it)}" } }
 
             val reader = soldPageReader
             if (reader != null) {
