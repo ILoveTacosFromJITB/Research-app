@@ -13,6 +13,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -45,6 +46,7 @@ fun IdentifiedScreen(
     onSearch: (ItemIdentification, String) -> Unit,
     onRetake: () -> Unit,
     onAddPhoto: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val context = LocalContext.current
     var query by rememberSaveable(item) { mutableStateOf(item.searchQuery) }
@@ -56,6 +58,18 @@ fun IdentifiedScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         photos.firstOrNull()?.let { PhotoPreview(it) }
+
+        item.warning?.let { warning ->
+            Card(
+                Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            ) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(warning, style = MaterialTheme.typography.bodyMedium)
+                    OutlinedButton(onClick = onOpenSettings) { Text("Open Settings") }
+                }
+            }
+        }
 
         if (!item.identified || q.isEmpty()) {
             Text(

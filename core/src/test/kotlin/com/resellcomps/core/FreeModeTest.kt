@@ -117,6 +117,25 @@ class FreeModeTest {
         assertEquals("bose quietcomfort 35 ii 789564", q)
     }
 
+    @Test fun ocrJunkIsDroppedFromSearch() {
+        // What the phone read off an "Alvin and the Chipmunks: The Road Chip" Blu-ray cover.
+        val q = FreeIdentification.queryFromText(listOf(
+            FreeIdentification.TextLine("BLU-RAY + DVD + DIGITAL HD", 10),
+            FreeIdentification.TextLine("AL I", 60),
+            FreeIdentification.TextLine("AND", 15),
+            FreeIdentification.TextLine("THE CHIPMUNKS", 22),
+            FreeIdentification.TextLine("ROAD CHIP", 28),
+            FreeIdentification.TextLine("$100 COUPONS", 10),
+        ))
+        assertEquals("road chip chipmunks", q)
+    }
+
+    @Test fun weakIdentificationCarriesAWarning() {
+        val id = FreeIdentification.build(null, listOf(FreeIdentification.TextLine("BOSE", 50)), emptyList(), emptyList(), emptyList())
+        assertEquals("bose", id.searchQuery)
+        assertEquals(FreeIdentification.BASIC_WARNING, id.warning)
+    }
+
     @Test fun quickButtonsOpenActiveAndSoldSearches() {
         assertEquals("https://www.ebay.com/sch/i.html?_nkw=vintage+hanes+beefy", SoldSearchLinks.ebayActive("vintage hanes beefy"))
         val sold = SoldSearchLinks.ebaySold("bose 700")

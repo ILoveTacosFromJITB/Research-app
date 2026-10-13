@@ -105,6 +105,7 @@ fun App(vm: MainViewModel) {
                         s.item, photos, modifier,
                         onSearch = vm::search, onRetake = vm::reset,
                         onAddPhoto = vm::backToPhotos,
+                        onOpenSettings = { showSettings = true },
                     )
                     is Screen.Results -> ResultsScreen(s.report, modifier, onEditSearch = vm::editSearch, onNewItem = vm::reset)
                     is Screen.Failed -> FailedScreen(s, modifier, onBack = { if (s.canRetrySearch) vm.editSearch() else vm.reset() })

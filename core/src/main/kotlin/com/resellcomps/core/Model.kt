@@ -14,6 +14,8 @@ data class ItemIdentification(
     val gtin: String? = null,
     /** Pages showing the same image (built-in Lens results). */
     val visualMatches: List<VisualMatch> = emptyList(),
+    /** Shown prominently when the name came from a weak source or a lookup failed. */
+    val warning: String? = null,
 )
 
 enum class ListingStatus { SOLD, ACTIVE }

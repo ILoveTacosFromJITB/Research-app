@@ -84,7 +84,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 runCatching { ebay.searchByImage(jpeg, limit = 12).map { it.title } }.getOrDefault(emptyList())
             } else emptyList()
             val id = FreeIdentification.build(seen.gtin, seen.textLines, seen.labels, barcodeTitles, similarTitles, vision)
-            if (visionError != null) id.copy(details = id.details + "\n" + visionError) else id
+            if (visionError != null) {
+                id.copy(details = id.details + "\n" + visionError, warning = "$visionError\n${FreeIdentification.BASIC_WARNING}")
+            } else id
         }
     }
 

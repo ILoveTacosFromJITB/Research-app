@@ -8,6 +8,10 @@ package com.resellcomps.core
  */
 object FreeIdentification {
 
+    const val BASIC_WARNING =
+        "Basic tag reading only, so the search may be off. Add a Google Vision key or an Anthropic key " +
+            "in Settings for accurate names."
+
     /** A line of text read from the photo; [height] is its on-screen size (bigger usually = brand/name). */
     data class TextLine(val text: String, val height: Int)
 
@@ -31,7 +35,7 @@ object FreeIdentification {
                 if (vision!!.matches.count { it.isMarketplace } >= 2) "high" else "medium",
             )
             fromText.isNotBlank() && fromSimilar.isNotBlank() -> Triple(mergeQueries(fromText, fromSimilar), "label text + similar eBay listings", "medium")
-            fromText.isNotBlank() -> Triple(fromText, "label text", "low")
+            fromText.isNotBlank() -> Triple(fromText, "label text only", "low")
             fromSimilar.isNotBlank() -> Triple(fromSimilar, "similar-looking eBay listings", "low")
             else -> Triple("", "nothing", "low")
         }
@@ -56,6 +60,7 @@ object FreeIdentification {
             identified = query.isNotBlank(),
             gtin = gtin,
             visualMatches = vision?.matches.orEmpty(),
+            warning = if (confidence == "low") BASIC_WARNING else null,
         )
     }
 
@@ -72,15 +77,37 @@ object FreeIdentification {
             .joinToString(" ")
     }
 
-    /** Largest text first (usually brand / product name), plus any model numbers, capped at ~6 words. */
+    /** Printed-on-the-box words that never help a search. */
+    private val NOISE = setOf(
+        "digital", "hd", "coupons", "coupon", "bonus", "features", "watch", "anywhere", "made", "china",
+        "rated", "widescreen", "includes", "over", "value", "free", "inside", "official", "licensed",
+    )
+
+    private val ROMAN = setOf("ii", "iii", "iv", "vi", "vii", "viii", "ix")
+
+    /** Keeps real words (3+ letters) and model numbers; drops OCR fragments like "al" or "i". */
+    private fun usefulWords(text: String): List<String> = TitleMatcher.tokens(text).filter { t ->
+        t !in NOISE && (TitleMatcher.isModelNumber(t) || t in ROMAN || (t.all(Char::isLetter) && t.length >= 3) || (t.all(Char::isDigit) && t.length >= 2))
+    }
+
+    /**
+     * The biggest readable text (usually the brand or title), plus any model number.
+     * Lines whose words are all OCR junk are skipped rather than put in the search.
+     */
     fun queryFromText(lines: List<TextLine>): String {
-        val usable = lines.map { it.copy(text = it.text.trim()) }
-            .filter { l -> l.text.length >= 2 && l.text.count(Char::isLetterOrDigit) >= 2 }
+        val usable = lines.mapNotNull { l -> usefulWords(l.text).takeIf { it.isNotEmpty() }?.let { l to it } }
         if (usable.isEmpty()) return ""
+        val tallest = usable.maxOf { it.first.height }
         val words = LinkedHashSet<String>()
-        usable.sortedByDescending { it.height }.take(2).forEach { words += TitleMatcher.tokens(it.text).take(4) }
-        usable.flatMap { TitleMatcher.tokens(it.text) }.filter(TitleMatcher::isModelNumber).take(1).forEach { words += it }
-        return words.take(6).joinToString(" ")
+        usable.filter { it.first.height >= tallest * 0.4 }
+            .sortedByDescending { it.first.height }
+            .take(2)
+            .forEach { words += it.second.take(4) }
+        // A plain 3-digit number on packaging is usually a price or count, not a model.
+        usable.flatMap { it.second }
+            .filter { TitleMatcher.isModelNumber(it) && (it.any(Char::isLetter) || it.length >= 4) }
+            .take(1).forEach { words += it }
+        return words.take(5).joinToString(" ")
     }
 
     private fun mergeQueries(a: String, b: String): String {
