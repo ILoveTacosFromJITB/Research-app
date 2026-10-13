@@ -4,6 +4,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,10 +21,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
@@ -37,9 +42,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.resellcomps.app.MainViewModel
+import com.resellcomps.app.Mode
 import com.resellcomps.app.Screen
 
 private val Green = Color(0xFF2E7D32)
@@ -53,7 +60,7 @@ fun App(vm: MainViewModel) {
     MaterialTheme(colorScheme = colors) {
         val screen by vm.screen.collectAsState()
         val photo by vm.photo.collectAsState()
-        var showSettings by rememberSaveable { mutableStateOf(!vm.hasKeys) }
+        var showSettings by rememberSaveable { mutableStateOf(!vm.settings.seenSettings) }
 
         BackHandler(enabled = showSettings || screen !is Screen.Home || photo != null) {
             when {
@@ -131,47 +138,120 @@ private fun FailedScreen(s: Screen.Failed, modifier: Modifier, onBack: () -> Uni
 
 @Composable
 private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> Unit) {
-    var anthropic by remember { mutableStateOf(vm.settings.anthropicKey) }
-    var serp by remember { mutableStateOf(vm.settings.serpApiKey) }
-    var model by remember { mutableStateOf(vm.settings.model) }
+    val st = vm.settings
+    var mode by remember { mutableStateOf(st.mode) }
+    var ebayId by remember { mutableStateOf(st.ebayClientId) }
+    var ebaySecret by remember { mutableStateOf(st.ebayClientSecret) }
+    var readSold by remember { mutableStateOf(st.readSoldPage) }
+    var anthropic by remember { mutableStateOf(st.anthropicKey) }
+    var serp by remember { mutableStateOf(st.serpApiKey) }
+    var model by remember { mutableStateOf(st.model) }
 
     Column(
         modifier.verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        Text("Mode", style = MaterialTheme.typography.titleMedium)
+        ModeOption(
+            selected = mode == Mode.FREE, onClick = { mode = Mode.FREE },
+            title = "Free",
+            body = "Reads barcodes and label text on your phone, finds eBay listings with eBay's free API, " +
+                "and gives one-tap sold searches. No cost.",
+        )
+        ModeOption(
+            selected = mode == Mode.PRO, onClick = { mode = Mode.PRO },
+            title = "Pro (paid APIs)",
+            body = "AI identifies anything from the photo, pulls eBay sold data and searches the whole web. " +
+                "Costs a few cents per scan on your own API accounts.",
+        )
+
+        HorizontalDivider()
+        if (mode == Mode.FREE) {
+            Text("Free mode", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Optional but recommended: free eBay developer keys turn on active listings and eBay photo search. " +
+                    "Sign up at developer.ebay.com, create a Production keyset, and paste the App ID (Client ID) " +
+                    "and Cert ID (Client Secret).",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            OutlinedTextField(
+                value = ebayId, onValueChange = { ebayId = it },
+                label = { Text("eBay App ID (Client ID)") }, singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = ebaySecret, onValueChange = { ebaySecret = it },
+                label = { Text("eBay Cert ID (Client Secret)") }, singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Read eBay sold prices automatically", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        "Experimental. Loads eBay's sold-search page on your phone and reads the prices. " +
+                            "Can stop working whenever eBay changes its site, and eBay's terms don't allow automated reading.",
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Switch(checked = readSold, onCheckedChange = { readSold = it })
+            }
+        } else {
+            Text("Pro mode", style = MaterialTheme.typography.titleMedium)
+            OutlinedTextField(
+                value = anthropic, onValueChange = { anthropic = it },
+                label = { Text("Anthropic API key (required)") },
+                supportingText = { Text("Identifies the item and searches the web. console.anthropic.com") },
+                visualTransformation = PasswordVisualTransformation(), singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = serp, onValueChange = { serp = it },
+                label = { Text("SerpApi key (recommended)") },
+                supportingText = { Text("eBay SOLD and active listings straight from eBay. serpapi.com") },
+                visualTransformation = PasswordVisualTransformation(), singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = model, onValueChange = { model = it },
+                label = { Text("Claude model") },
+                supportingText = { Text("claude-sonnet-5-5 costs about half as much") },
+                singleLine = true, modifier = Modifier.fillMaxWidth(),
+            )
+        }
         Text(
             "Keys are stored only on this phone and sent only to their own service.",
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        OutlinedTextField(
-            value = anthropic, onValueChange = { anthropic = it },
-            label = { Text("Anthropic API key (required)") },
-            supportingText = { Text("Identifies the item and searches the web. Get one at console.anthropic.com") },
-            visualTransformation = PasswordVisualTransformation(), singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            value = serp, onValueChange = { serp = it },
-            label = { Text("SerpApi key (recommended)") },
-            supportingText = { Text("Pulls eBay SOLD and active listings straight from eBay. Free tier at serpapi.com") },
-            visualTransformation = PasswordVisualTransformation(), singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            value = model, onValueChange = { model = it },
-            label = { Text("Claude model") }, singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            style = MaterialTheme.typography.bodySmall,
         )
         Button(
             onClick = {
-                vm.settings.anthropicKey = anthropic
-                vm.settings.serpApiKey = serp
-                vm.settings.model = model
+                st.mode = mode
+                st.ebayClientId = ebayId
+                st.ebayClientSecret = ebaySecret
+                st.readSoldPage = readSold
+                st.anthropicKey = anthropic
+                st.serpApiKey = serp
+                st.model = model
+                st.seenSettings = true
                 onDone()
             },
-            enabled = anthropic.isNotBlank(),
+            enabled = mode == Mode.FREE || anthropic.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Save") }
-        OutlinedButton(onClick = onDone, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
+        OutlinedButton(onClick = { st.seenSettings = true; onDone() }, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
+    }
+}
+
+@Composable
+private fun ModeOption(selected: Boolean, onClick: () -> Unit, title: String, body: String) {
+    Row(
+        Modifier.fillMaxWidth().selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
+        verticalAlignment = Alignment.Top,
+    ) {
+        RadioButton(selected = selected, onClick = null)
+        Column(Modifier.padding(start = 8.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(body, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }

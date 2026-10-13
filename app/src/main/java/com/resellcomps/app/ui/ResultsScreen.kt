@@ -40,6 +40,7 @@ import com.resellcomps.core.CompsReport
 import com.resellcomps.core.ListingSource
 import com.resellcomps.core.ListingStatus
 import com.resellcomps.core.PriceStats
+import com.resellcomps.core.SoldSearchLinks
 import com.resellcomps.core.Valuation
 import java.text.DateFormat
 import java.util.Date
@@ -66,7 +67,8 @@ fun ResultsScreen(report: CompsReport, modifier: Modifier, onEditSearch: () -> U
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        item { ValuationCard(report.valuation) }
+        item { ValuationCard(report.valuation, report.soldSearched) }
+        item { SoldLinks(report.query) }
         if (report.notes.isNotEmpty()) {
             item {
                 Column {
@@ -115,7 +117,7 @@ fun ResultsScreen(report: CompsReport, modifier: Modifier, onEditSearch: () -> U
 }
 
 @Composable
-private fun ValuationCard(v: Valuation) {
+private fun ValuationCard(v: Valuation, soldSearched: Boolean) {
     Card(
         Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -142,8 +144,14 @@ private fun ValuationCard(v: Valuation) {
                     }
                 }
                 is Valuation.OnlyActive -> {
-                    Text("No sold comps found", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Text("No value is given because no sale backs one up.")
+                    Text(
+                        if (soldSearched) "No sold comps found" else "Sold prices not checked",
+                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
+                    )
+                    Text(
+                        if (soldSearched) "No value is given because no sale backs one up."
+                        else "No value is given. Tap a sold-search button below to see what it actually sells for.",
+                    )
                     Spacer(Modifier.height(4.dp))
                     Text(
                         "For reference only, ${v.active.count} active ${plural(v.active.count, "listing")} ask " +
@@ -155,10 +163,28 @@ private fun ValuationCard(v: Valuation) {
                 Valuation.NoComps -> {
                     Text("No comps found", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Text(
-                        "No sold or active listings matched this item, so no price is given. " +
+                        (if (soldSearched) "No sold or active listings matched this item, so no price is given. "
+                        else "No active listings matched and sold prices weren't checked, so no price is given. ") +
                             "Try editing the search terms (fewer words, or the exact model number).",
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SoldLinks(query: String) {
+    val context = LocalContext.current
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("Check sold listings yourself", style = MaterialTheme.typography.labelLarge)
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            SoldSearchLinks.forQuery(query).forEach { (name, url) ->
+                OutlinedButton(
+                    onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+                ) { Text(name, style = MaterialTheme.typography.labelMedium, maxLines = 1) }
             }
         }
     }
@@ -202,6 +228,12 @@ private fun ListingCard(c: CheckedListing) {
                 Text(l.title, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
                 listOfNotNull(l.condition, l.soldDate, l.shipping).takeIf { it.isNotEmpty() }?.let {
                     Text(it.joinToString(" · "), style = MaterialTheme.typography.bodySmall)
+                }
+                if (l.source == ListingSource.EBAY_PAGE) {
+                    Text(
+                        "Read from eBay's sold-search page — open the link to confirm.",
+                        style = MaterialTheme.typography.bodySmall, fontStyle = FontStyle.Italic,
+                    )
                 }
                 if (l.source == ListingSource.WEB) {
                     Text(

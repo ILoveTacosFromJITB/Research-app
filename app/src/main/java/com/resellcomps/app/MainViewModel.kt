@@ -7,6 +7,9 @@ import androidx.lifecycle.viewModelScope
 import com.resellcomps.core.ClaudeService
 import com.resellcomps.core.CompsFinder
 import com.resellcomps.core.CompsReport
+import com.resellcomps.core.EbayBrowseApi
+import com.resellcomps.core.FreeCompsFinder
+import com.resellcomps.core.FreeIdentification
 import com.resellcomps.core.ItemIdentification
 import com.resellcomps.core.SerpApiEbay
 import kotlinx.coroutines.Dispatchers
@@ -34,12 +37,35 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private var lastItem: ItemIdentification? = null
 
-    val hasKeys: Boolean get() = settings.anthropicKey.isNotBlank()
+    /** Free mode works with no keys at all; Pro mode needs an Anthropic key. */
+    val hasKeys: Boolean get() = settings.mode == Mode.FREE || settings.anthropicKey.isNotBlank()
 
-    private fun finder() = CompsFinder(
+    private fun proFinder() = CompsFinder(
         claude = ClaudeService(settings.anthropicKey, settings.model),
         ebay = settings.serpApiKey.takeIf { it.isNotBlank() }?.let { SerpApiEbay(it) },
     )
+
+    private fun ebayApi() = if (settings.hasEbayKeys) EbayBrowseApi(settings.ebayClientId, settings.ebayClientSecret) else null
+
+    private fun freeFinder() = FreeCompsFinder(
+        ebay = ebayApi(),
+        soldPageReader = if (settings.readSoldPage) SoldPageReader(getApplication())::read else null,
+    )
+
+    /** Free identification: on-phone barcode/text/label reading, plus eBay barcode and photo matches when keys are set. */
+    private suspend fun identifyFree(jpeg: ByteArray): ItemIdentification {
+        val seen = OnDeviceReader.read(jpeg)
+        val ebay = ebayApi()
+        return withContext(Dispatchers.IO) {
+            val barcodeTitles = if (ebay != null && seen.gtin != null) {
+                runCatching { ebay.search(null, seen.gtin, limit = 20).map { it.title } }.getOrDefault(emptyList())
+            } else emptyList()
+            val similarTitles = if (ebay != null && barcodeTitles.isEmpty()) {
+                runCatching { ebay.searchByImage(jpeg, limit = 12).map { it.title } }.getOrDefault(emptyList())
+            } else emptyList()
+            FreeIdentification.build(seen.gtin, seen.textLines, seen.labels, barcodeTitles, similarTitles)
+        }
+    }
 
     fun onPhoto(uri: Uri) {
         viewModelScope.launch {
@@ -54,7 +80,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val jpeg = _photo.value ?: return
         viewModelScope.launch {
             _screen.value = Screen.Busy("Identifying the item…")
-            runCatching { withContext(Dispatchers.IO) { finder().identify(jpeg, hint) } }
+            runCatching {
+                if (settings.mode == Mode.FREE) {
+                    identifyFree(jpeg).let { id ->
+                        when {
+                            hint.isBlank() -> id
+                            // Nothing readable on the item: the seller's note becomes the search.
+                            id.searchQuery.isBlank() -> id.copy(name = hint.trim(), searchQuery = hint.trim(), identified = true)
+                            else -> id.copy(details = id.details + "\nYour note: " + hint.trim())
+                        }
+                    }
+                } else {
+                    withContext(Dispatchers.IO) { proFinder().identify(jpeg, hint) }
+                }
+            }
                 .onSuccess { lastItem = it; _screen.value = Screen.Identified(it) }
                 .onFailure { _screen.value = Screen.Failed(describe(it), false) }
         }
@@ -67,7 +106,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _screen.value = Screen.Busy("Searching…")
             runCatching {
                 withContext(Dispatchers.IO) {
-                    finder().findComps(jpeg, item, query) { msg -> _screen.value = Screen.Busy(msg) }
+                    val progress = { msg: String -> _screen.value = Screen.Busy(msg) }
+                    if (settings.mode == Mode.FREE) freeFinder().findComps(jpeg, item, query, progress)
+                    else proFinder().findComps(jpeg, item, query, progress)
                 }
             }
                 .onSuccess { _screen.value = Screen.Results(it) }

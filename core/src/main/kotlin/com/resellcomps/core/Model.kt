@@ -10,6 +10,8 @@ data class ItemIdentification(
     val searchQuery: String,
     val confidence: String,
     val identified: Boolean,
+    /** UPC/EAN read from a barcode in the photo, if any. */
+    val gtin: String? = null,
 )
 
 enum class ListingStatus { SOLD, ACTIVE }
@@ -17,6 +19,12 @@ enum class ListingStatus { SOLD, ACTIVE }
 enum class ListingSource(val label: String) {
     /** Structured eBay data from SerpApi: title, price and link come straight from eBay. */
     EBAY("eBay"),
+
+    /** eBay's official Browse API (active listings only): data straight from eBay. */
+    EBAY_API("eBay"),
+
+    /** Read on the phone from eBay's own sold-search page. */
+    EBAY_PAGE("eBay"),
 
     /** Found by Claude's web search; the URL was confirmed to be a real search result. */
     WEB("Web"),
@@ -76,4 +84,6 @@ data class CompsReport(
     val checked: List<CheckedListing>,
     val notes: List<String>,
     val retrievedAtEpochMs: Long,
+    /** False when sold listings weren't searched at all (free mode with the sold-page reader off). */
+    val soldSearched: Boolean = true,
 )

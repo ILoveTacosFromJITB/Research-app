@@ -3,21 +3,29 @@
 An Android app for resellers: take a photo of an item (clothes, electronics, anything) and get
 **real sold and active listings** for it, with a price only when listings back it up.
 
-## How it works
+## Two modes
 
-1. **Photo → item.** Claude looks at the photo and names the item (brand, model, size, details) and
-   suggests search terms. You can correct both before searching. Claude never gives a price here.
-2. **Comps.** Two sources run in parallel:
-   - **eBay sold + active** via [SerpApi](https://serpapi.com/ebay-search-api): titles, prices and
-     links come straight from eBay's results.
-   - **The wider web** (Poshmark, Mercari, Grailed, StockX, Swappa, …) via Claude's web search. A web
-     listing is kept only if its link was actually returned by the search, so links can't be made up.
-3. **Match check.** Claude compares each listing with your photo and drops ones that aren't the same
-   item (other models, bundles, parts-only, boxes). Dropped listings stay visible in the *Excluded* tab.
-4. **Price.** Plain math over the matched listings, no AI:
-   - Sold comps found → **median sold price**, the range, and every sold listing as proof.
-   - Only active listings → **no value is given**; asking prices are shown as reference only.
-   - Nothing found → **"No comps found"** and no price.
+**Free (default): costs nothing to run**
+- **Identify:** on the phone (Google ML Kit, no account needed) it reads **barcodes** and **text on
+  labels/tags**, and with eBay keys it also matches the barcode on eBay and runs **eBay photo search**.
+  If nothing readable is found, it asks you to type what the item is. It never guesses.
+- **Active listings:** eBay's free official Browse API (needs free developer keys, see below).
+- **Sold listings:** one-tap **sold-search buttons** for eBay, Poshmark and Mercari open the real sold
+  results. Optionally, **"Read eBay sold prices automatically"** (experimental, off by default) loads
+  eBay's sold page on the phone and reads the prices so the app can give a sold value. It can break
+  when eBay changes its site, and eBay's terms don't allow automated reading.
+- **Match check:** plain rules. Every model number and most words of your search must be in the
+  title, and lots, bundles, parts-only and box-only listings are excluded (shown in *Excluded*).
+
+**Pro: paid APIs, a few cents per scan**
+- Claude identifies the item from the photo, searches the web for comps (links verified against real
+  search results), and checks each listing against your photo. eBay sold data via SerpApi.
+
+**Price rules (both modes):** plain math over matched listings only.
+- Sold comps found → **median sold price**, range, and every sold listing as proof.
+- Only active listings → **no value is given**; asking prices are shown as reference only.
+- Nothing found → **"No comps found"** and no price. If sold listings weren't searched (free mode with
+  the reader off) or eBay's page couldn't be read, the app says so instead of claiming zero sales.
 
 Every listing card opens the real listing when tapped.
 
@@ -28,15 +36,20 @@ Each push builds an APK in GitHub Actions. Open the repo's **Releases** page on 
 
 ## Setup in the app
 
-Open **Settings** (gear icon) and add:
+Open **Settings** (gear icon).
 
-- **Anthropic API key** (required) — from https://console.anthropic.com
-- **SerpApi key** (recommended) — from https://serpapi.com. Without it, eBay sold data is skipped and
-  only web search is used.
+**Free mode, eBay keys (free, recommended):**
+1. Sign up at https://developer.ebay.com and create an application keyset for **Production**.
+2. eBay will ask about "Marketplace Account Deletion" notifications before turning the keys on. This
+   app doesn't store eBay user data, so choose the option to apply for an **exemption**.
+3. Paste the **App ID (Client ID)** and **Cert ID (Client Secret)** into Settings.
+
+The free API allows about 5,000 calls a day; each scan uses 2–4.
+
+**Pro mode:** an Anthropic API key (https://console.anthropic.com, pay-as-you-go) and optionally a
+SerpApi key (https://serpapi.com). This is billed separately from any Claude subscription.
 
 Keys are stored only in the app's private storage on your phone.
-
-Costs: each lookup makes three Claude calls (one with web search) and two SerpApi searches.
 
 ## Project layout
 

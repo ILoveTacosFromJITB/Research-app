@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.resellcomps.app.MainViewModel
+import com.resellcomps.app.Mode
 import java.io.File
 
 @Composable
@@ -58,8 +59,9 @@ fun HomeScreen(vm: MainViewModel, photo: ByteArray?, modifier: Modifier, onNeedK
         if (photo == null) {
             Text("What's it worth?", style = MaterialTheme.typography.headlineSmall)
             Text(
-                "Snap a photo of an item. The app identifies it, pulls real sold and active listings, " +
-                    "and only gives a price when real listings back it up. Every price links to its listing.",
+                "Snap a photo of an item — tip: include the barcode or label/tag if it has one. " +
+                    "The app finds real listings and only gives a price when real listings back it up. " +
+                    "Every price links to its listing.",
                 style = MaterialTheme.typography.bodyMedium,
             )
         } else {
@@ -90,10 +92,11 @@ fun HomeScreen(vm: MainViewModel, photo: ByteArray?, modifier: Modifier, onNeedK
         }
 
         if (photo != null) {
+            val free = vm.settings.mode == Mode.FREE
             OutlinedTextField(
                 value = hint, onValueChange = { hint = it },
-                label = { Text("Anything the photo doesn't show? (optional)") },
-                placeholder = { Text("e.g. size M, 256GB, tags attached") },
+                label = { Text(if (free) "What is it? (optional, helps free mode)" else "Anything the photo doesn't show? (optional)") },
+                placeholder = { Text(if (free) "e.g. Patagonia Better Sweater mens M" else "e.g. size M, 256GB, tags attached") },
                 modifier = Modifier.fillMaxWidth(),
             )
             Button(
