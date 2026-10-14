@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Keyboard
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material3.Button
@@ -104,6 +105,13 @@ fun HomeScreen(vm: MainViewModel, photos: List<ByteArray>, modifier: Modifier, o
             ) {
                 Icon(Icons.Filled.PhotoLibrary, contentDescription = null)
                 Text("  Gallery")
+            }
+        }
+
+        if (photos.isEmpty()) {
+            OutlinedButton(onClick = vm::startTextSearch, modifier = Modifier.fillMaxWidth()) {
+                Icon(Icons.Filled.Keyboard, contentDescription = null)
+                Text("  Search by text")
             }
         }
 

@@ -107,6 +107,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Straight to the search screen with no photo: type a search and tap eBay Active/Sold. */
+    fun startTextSearch() {
+        val blank = ItemIdentification(
+            name = "", brand = null, model = null, category = "", details = "",
+            searchQuery = "", confidence = "", identified = true,
+        )
+        _photos.value = emptyList()
+        lastItem = blank
+        _screen.value = Screen.Identified(blank)
+    }
+
     /** Back to the photo screen keeping the photos, e.g. to add a close-up of the tag. */
     fun backToPhotos() {
         _screen.value = Screen.Home
@@ -160,8 +171,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun search(item: ItemIdentification, query: String) {
-        val photos = _photos.value.takeIf { it.isNotEmpty() } ?: return
-        lastItem = item
+        // Photos are optional here: a typed search runs on text alone.
+        val photos = _photos.value
+        // Remember the typed search so "Edit search" comes back to it.
+        lastItem = item.copy(searchQuery = query)
         viewModelScope.launch {
             _screen.value = Screen.Busy("Searching…")
             runCatching {

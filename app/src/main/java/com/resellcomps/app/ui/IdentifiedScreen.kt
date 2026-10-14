@@ -19,12 +19,19 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,6 +59,10 @@ fun IdentifiedScreen(
     var query by rememberSaveable(item) { mutableStateOf(item.searchQuery) }
     var showDetails by rememberSaveable(item) { mutableStateOf(false) }
     val q = query.trim()
+    // Opened from "Search by text": no photo, just type and go.
+    val textMode = photos.isEmpty()
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(textMode) { if (textMode) focus.requestFocus() }
 
     Column(
         modifier.verticalScroll(rememberScrollState()).padding(16.dp),
@@ -71,7 +82,7 @@ fun IdentifiedScreen(
             }
         }
 
-        if (!item.identified || q.isEmpty()) {
+        if (!textMode && (!item.identified || q.isEmpty())) {
             Text(
                 "Couldn't read enough from the photo. Add a close-up of the tag or label, or type the search below.",
                 style = MaterialTheme.typography.bodyMedium,
@@ -81,9 +92,10 @@ fun IdentifiedScreen(
 
         OutlinedTextField(
             value = query, onValueChange = { query = it },
-            label = { Text("Search") }, singleLine = true,
+            label = { Text(if (textMode) "Type what it is, e.g. vintage hanes beefy" else "Search") }, singleLine = true,
             textStyle = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Done),
+            modifier = Modifier.fillMaxWidth().focusRequester(focus),
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -108,7 +120,7 @@ fun IdentifiedScreen(
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            OutlinedButton(onClick = onAddPhoto, modifier = Modifier.weight(1f)) { Text("Add tag photo") }
+            OutlinedButton(onClick = onAddPhoto, modifier = Modifier.weight(1f)) { Text(if (textMode) "Use a photo" else "Add tag photo") }
             OutlinedButton(onClick = onRetake, modifier = Modifier.weight(1f)) { Text("New item") }
         }
 
@@ -118,29 +130,32 @@ fun IdentifiedScreen(
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Show prices in the app") }
 
-        TextButton(onClick = { photos.firstOrNull()?.let { GoogleLens.open(context, it) } }) {
-            Text("Wrong item? Open in Google Lens")
-        }
+        if (!textMode) {
 
-        TextButton(onClick = { showDetails = !showDetails }) {
-            Text(if (showDetails) "Hide what the app saw" else "What the app saw")
-        }
-        if (showDetails) {
-            Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(item.name, style = MaterialTheme.typography.titleMedium)
-                    listOfNotNull(
-                        item.brand?.let { "Brand: $it" },
-                        item.model?.let { "Model: $it" },
-                        item.category.takeIf { it.isNotBlank() }?.let { "Category: $it" },
-                    ).forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                    if (item.details.isNotBlank()) Text(item.details, style = MaterialTheme.typography.bodySmall)
-                    Text("Confidence: ${item.confidence}", style = MaterialTheme.typography.labelMedium)
-                }
+            TextButton(onClick = { photos.firstOrNull()?.let { GoogleLens.open(context, it) } }) {
+                Text("Wrong item? Open in Google Lens")
             }
-            if (item.visualMatches.isNotEmpty()) {
-                Text("Same photo found on the web", style = MaterialTheme.typography.titleSmall)
-                item.visualMatches.take(6).forEach { VisualMatchCard(it) }
+
+            TextButton(onClick = { showDetails = !showDetails }) {
+                Text(if (showDetails) "Hide what the app saw" else "What the app saw")
+            }
+            if (showDetails) {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(item.name, style = MaterialTheme.typography.titleMedium)
+                        listOfNotNull(
+                            item.brand?.let { "Brand: $it" },
+                            item.model?.let { "Model: $it" },
+                            item.category.takeIf { it.isNotBlank() }?.let { "Category: $it" },
+                        ).forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                        if (item.details.isNotBlank()) Text(item.details, style = MaterialTheme.typography.bodySmall)
+                        Text("Confidence: ${item.confidence}", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+                if (item.visualMatches.isNotEmpty()) {
+                    Text("Same photo found on the web", style = MaterialTheme.typography.titleSmall)
+                    item.visualMatches.take(6).forEach { VisualMatchCard(it) }
+                }
             }
         }
     }
