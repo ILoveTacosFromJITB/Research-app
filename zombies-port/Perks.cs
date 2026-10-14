@@ -7,8 +7,8 @@
 //   solo_revive_buy_trigger_move() : the solo Quick Revive machine is unavailable while its
 //                             life is unused, and gone after 3 purchases (level.solo_lives_given)
 //
-// All eight BO1 perks are listed with their real prices so machines can be added later. The
-// effects are implemented for Quick Revive and Juggernog.
+// All eight BO1 perks, with their real prices. PerkEffects below holds what the other six do;
+// PlayerPerks (Unity) applies them.
 
 using System;
 using System.Collections.Generic;
@@ -88,6 +88,80 @@ namespace ZombiesPort
 
         /// <summary>Every machine waits for "&lt;perk&gt;_power_on", except Quick Revive in solo.</summary>
         public static bool NeedsPower(PerkId p, bool solo) => !(solo && p == PerkId.QuickRevive);
+    }
+
+    /// <summary>
+    /// What the other six perks do. Where BO1 set the effect in script, the value is from the dump;
+    /// the engine-side ones (reload, fire rate, sprint) use the commonly cited BO1 values and are
+    /// marked as such. Tune them here.
+    /// </summary>
+    public static class PerkEffects
+    {
+        /// <summary>Speed Cola (specialty_fastreload): reloads take half as long. Engine perk value.</summary>
+        public const float ReloadTimeMultiplier = 0.5f;
+        /// <summary>Double Tap (specialty_rof): 33% faster fire, i.e. 0.75x the time between shots. Engine perk value.</summary>
+        public const float FireIntervalMultiplier = 0.75f;
+        /// <summary>Stamin-Up (specialty_longersprint): sprint lasts twice as long. Engine perk value.</summary>
+        public const float SprintTimeMultiplier = 2f;
+        /// <summary>Deadshot (UseAlternateAimParams): tighter hip-fire. Interpretation; the engine values aren't in the dump.</summary>
+        public const float DeadshotHipSpreadMultiplier = 0.5f;
+        /// <summary>Deadshot: aiming down sights snaps to a zombie's head within this many degrees.</summary>
+        public const float DeadshotSnapDegrees = 12f;
+
+        // PhD Flopper (specialty_flakjacket), from _zombiemode_perks.gsc
+        public const float PhdRadiusUnits = 300f;      // zombie_perk_divetonuke_radius
+        public const int PhdMaxDamage = 5000;          // zombie_perk_divetonuke_max_damage (at the center)
+        public const int PhdMinDamage = 1000;          // zombie_perk_divetonuke_min_damage (at the edge)
+        /// <summary>
+        /// Mobile stand-in for BO1's dive-to-prone: landing from a drop at least this high (meters)
+        /// triggers the explosion. The touch controls have no prone dive.
+        /// </summary>
+        public const float PhdFlopMinFallMeters = 1.2f;
+
+        /// <summary>RadiusDamage( origin, 300, 5000, 1000 ): linear from max at the center to min at the edge.</summary>
+        public static int PhdDamageAt(float distanceUnits)
+        {
+            if (distanceUnits > PhdRadiusUnits) return 0;
+            float t = Math.Max(0f, distanceUnits) / PhdRadiusUnits;
+            return (int)Math.Round(PhdMaxDamage + (PhdMinDamage - PhdMaxDamage) * t);
+        }
+    }
+
+    /// <summary>
+    /// Sprint stamina. BO1 limited sprinting (an engine setting); Stamin-Up doubled it. Placeholder
+    /// numbers: 4 s of sprint, refilling at the same rate, and at least 1 s needed to start again.
+    /// </summary>
+    public class SprintStamina
+    {
+        public const float BaseSeconds = 4f;          // player_sprintTime (engine)
+        public const float MinToStart = 1f;           // player_sprintMinTime (engine)
+
+        public float Remaining { get; private set; } = BaseSeconds;
+        public float Max { get; private set; } = BaseSeconds;
+        bool _exhausted;
+
+        /// <summary>Stamin-Up on or off.</summary>
+        public void SetLongerSprint(bool on)
+        {
+            Max = on ? BaseSeconds * PerkEffects.SprintTimeMultiplier : BaseSeconds;
+            if (Remaining > Max) Remaining = Max;
+        }
+
+        /// <summary>Call every frame. Returns whether the player may sprint this frame.</summary>
+        public bool Tick(float dt, bool wantsSprint)
+        {
+            bool canStart = !_exhausted || Remaining >= MinToStart;
+            if (canStart) _exhausted = false;
+
+            if (wantsSprint && !_exhausted && Remaining > 0f)
+            {
+                Remaining = Math.Max(0f, Remaining - dt);
+                if (Remaining <= 0f) _exhausted = true;
+                return true;
+            }
+            Remaining = Math.Min(Max, Remaining + dt);
+            return false;
+        }
     }
 
     /// <summary>level.solo_lives_given: shared by the solo game, not per machine.</summary>

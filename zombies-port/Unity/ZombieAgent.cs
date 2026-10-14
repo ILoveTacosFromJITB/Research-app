@@ -70,6 +70,7 @@ namespace ZombiesPort
         RoundDirector _director;
         NavMeshAgent _nav;
         Collider[] _colliders;
+        Collider _headCollider, _bodyCollider;
         WaitForSeconds _corpseWait;
         bool _hasSpeed, _hasAttack, _hasDie, _hasTear, _hasClimb;
 
@@ -90,6 +91,21 @@ namespace ZombiesPort
         /// <summary>True until the zombie has climbed in (or if it never had a window).</summary>
         public bool IsOutside => _phase != Phase.Chasing;
 
+        /// <summary>
+        /// Where the head is (Deadshot aims here): the head hitbox if there is one, otherwise
+        /// near the top of the body collider.
+        /// </summary>
+        public Vector3 HeadPosition
+        {
+            get
+            {
+                if (_headCollider != null) return _headCollider.bounds.center;
+                if (_bodyCollider == null) return transform.position + Vector3.up * 1.6f;
+                Bounds b = _bodyCollider.bounds;
+                return new Vector3(b.center.x, b.max.y - b.size.y * 0.1f, b.center.z);
+            }
+        }
+
         /// <summary>Called once by the pool at load time: cache everything so spawning is cheap.</summary>
         internal void OnCreated(ZombiePool pool)
         {
@@ -97,6 +113,12 @@ namespace ZombiesPort
             _nav = GetComponent<NavMeshAgent>();
             _nav.enabled = false;
             _colliders = GetComponentsInChildren<Collider>(true);
+            _bodyCollider = GetComponent<Collider>();
+            foreach (var c in _colliders)
+            {
+                var box = c.GetComponent<ZombieHitbox>();
+                if (box != null && box.zone == HitZone.Head) { _headCollider = c; break; }
+            }
             _corpseWait = new WaitForSeconds(corpseSeconds);
             if (animator == null) animator = GetComponentInChildren<Animator>();
             if (animator != null)

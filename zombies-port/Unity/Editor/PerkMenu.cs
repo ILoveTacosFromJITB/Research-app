@@ -1,9 +1,10 @@
 // PerkMenu.cs  (editor only: must stay in a folder named "Editor")
 //
-// GameObject > Zombies > Perk Machines (Quick Revive + Juggernog)
+// GameObject > Zombies > Perk Machines (all 8)
 //   - Adds PlayerPerks to every ZombiePlayer that lacks it
-//   - Places a Quick Revive and a Juggernog machine, and a power switch (if the scene has none),
-//     in front of the Scene view camera. Each is a placeholder box with a floating label, a
+//   - Places all eight Perk-a-Cola machines in a row (skipping any perk the scene already has a
+//     machine for), and a power switch (if the scene has none), in front of the Scene view
+//     camera. Each is a placeholder box with a floating label, a
 //     solid collider and a trigger zone for the interact button. Swap in real models later.
 //   - Adds the perk icon row to the HUD (top-left, under the round counter)
 
@@ -17,7 +18,9 @@ namespace ZombiesPort.EditorTools
 {
     public static class PerkMenu
     {
-        [MenuItem("GameObject/Zombies/Perk Machines (Quick Revive + Juggernog)", false, 15)]
+        const float Spacing = 2.2f;
+
+        [MenuItem("GameObject/Zombies/Perk Machines (all 8)", false, 15)]
         internal static void CreatePerkMachines()
         {
             foreach (var p in Object.FindObjectsByType<ZombiePlayer>(FindObjectsSortMode.None))
@@ -32,16 +35,29 @@ namespace ZombiesPort.EditorTools
                 right = Vector3.Cross(Vector3.up, fwd).normalized;
             }
 
-            var revive = Machine("Perk Machine - Quick Revive", PerkId.QuickRevive, "QUICK REVIVE", origin - right * 2f);
-            var jugg = Machine("Perk Machine - Juggernog", PerkId.Juggernog, "JUGGERNOG", origin + right * 2f);
+            // Perks that already have a machine (from an earlier run of this menu) are skipped.
+            var existing = new System.Collections.Generic.HashSet<PerkId>();
+            foreach (var m in Object.FindObjectsByType<PerkMachine>(FindObjectsSortMode.None)) existing.Add(m.Perk);
 
-            if (Object.FindFirstObjectByType<PowerSwitch>() == null) PowerSwitchObject(origin + right * 5f);
+            var perks = (PerkId[])System.Enum.GetValues(typeof(PerkId));
+            float start = -(perks.Length - 1) * Spacing / 2f;
+            var created = new System.Collections.Generic.List<Object>();
+            for (int i = 0; i < perks.Length; i++)
+            {
+                var p = perks[i];
+                if (existing.Contains(p)) continue;
+                string name = PerkInfo.DisplayName(p);
+                created.Add(Machine("Perk Machine - " + name, p, name.ToUpperInvariant(), origin + right * (start + i * Spacing)));
+            }
+
+            if (Object.FindFirstObjectByType<PowerSwitch>() == null)
+                PowerSwitchObject(origin + right * (start - Spacing - 0.8f));
 
             CreatePerkHud();
 
-            Selection.objects = new Object[] { revive, jugg };
-            Debug.Log("Perk machines placed. Turn the power on to use Juggernog (and Quick Revive in co-op). " +
-                      "Solo Quick Revive costs 500 and works without power.");
+            Selection.objects = created.ToArray();
+            Debug.Log("Perk machines placed. Turn the power on to use them. Solo Quick Revive costs 500 and works " +
+                      "without power. To try every perk at once: in Play mode, right-click PlayerPerks > Debug: Give All Perks.");
         }
 
         static GameObject Machine(string name, PerkId perk, string label, Vector3 position)

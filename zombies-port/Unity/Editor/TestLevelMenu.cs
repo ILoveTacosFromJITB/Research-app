@@ -11,7 +11,8 @@
 //                       -Z  boarded window, zombies spawn outside it
 //
 //   - a 60 x 60 m floor, every system from the other Zombies menus, two Mystery Box locations,
-//     hellhound rounds with three dog spots around the start
+//     hellhound rounds with three dog spots around the start, all eight perk machines
+//   - a 1.5 m ledge with a ramp, ahead and to the left: drop off it with PhD Flopper
 //   - the NavMesh baked (needs the AI Navigation package)
 //   - saved as Assets/Scenes/ZombiesTestLevel.unity and added to Build Settings
 //   - the app locked to landscape
@@ -87,8 +88,10 @@ namespace ZombiesPort.EditorTools
             EditorPlacement.Set(Vector3.zero, Vector3.left, Vector3.zero);
             BarricadeMenu.CreateWallBuys();             // 4 m to the left
 
-            EditorPlacement.Set(Vector3.zero, Vector3.forward, new Vector3(8f, 0f, 2f));
-            PerkMenu.CreatePerkMachines();              // to the right: Quick Revive, Juggernog, power switch
+            EditorPlacement.Set(Vector3.zero, Vector3.forward, new Vector3(16f, 0f, 2f));
+            PerkMenu.CreatePerkMachines();              // to the right: power switch, then the 8 perk machines in a row
+
+            CreatePhdLedge();                           // a 1.5 m ledge to drop off (PhD Flopper)
 
             EditorPlacement.Set(Vector3.zero, Vector3.forward, Vector3.zero);
             ZoneMenu.CreateZonesAndDoor();              // door 6.5 m ahead, room2 behind it
@@ -108,6 +111,25 @@ namespace ZombiesPort.EditorTools
             if (player != null) Selection.activeGameObject = player.gameObject;
             Debug.Log("Test level built and saved to " + ScenePath + ". Press Play. In the editor: WASD to move, " +
                       "Tab for mouse look, left mouse to shoot, F to interact (hold to rebuild/revive).");
+        }
+
+        // ---------------- PhD Flopper ledge ----------------
+
+        /// <summary>
+        /// Touch controls can't dive to prone, so PhD Flopper goes off when landing from a 1.2 m+ drop.
+        /// Walk up the ramp onto the platform and step off any other side.
+        /// </summary>
+        static void CreatePhdLedge()
+        {
+            const float height = 1.5f, rampRun = 4f;
+            var root = new GameObject("PhD Ledge");
+            Undo.RegisterCreatedObjectUndo(root, "Create PhD Ledge");
+            root.transform.position = new Vector3(-2f, 0f, 3.5f);
+
+            Block("Platform", root.transform, new Vector3(0f, height / 2f, 0f), new Vector3(2.4f, height, 2.4f));
+            float length = Mathf.Sqrt(rampRun * rampRun + height * height);
+            var ramp = Block("Ramp", root.transform, new Vector3(0f, height / 2f - 0.05f, -1.2f - rampRun / 2f), new Vector3(1.6f, 0.1f, length));
+            ramp.transform.localRotation = Quaternion.Euler(-Mathf.Atan2(height, rampRun) * Mathf.Rad2Deg, 0f, 0f); // high end at the platform
         }
 
         // ---------------- Mystery Box (no menu item of its own yet) ----------------

@@ -84,6 +84,21 @@ namespace ZombiesPort
             Current = startingPistol;
         }
 
+        /// <summary>
+        /// take_additionalprimaryweapon(): losing Mule Kick takes the third gun (the last one
+        /// gained). If it was in hand, the first gun comes out. Returns the gun taken, or null.
+        /// </summary>
+        public string LoseMuleKick()
+        {
+            HasMuleKick = false;
+            if (_primaries.Count < 3) return null;
+            string taken = _primaries[_primaries.Count - 1];
+            if (Current == taken) Current = _primaries[0];
+            _primaries.RemoveAt(_primaries.Count - 1);
+            OnWeaponTaken?.Invoke(taken);
+            return taken;
+        }
+
         public void SwitchTo(string weapon)
         {
             if (_primaries.Contains(weapon)) Current = weapon;

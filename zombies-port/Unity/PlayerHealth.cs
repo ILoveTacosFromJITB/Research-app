@@ -34,6 +34,8 @@ namespace ZombiesPort
         public PlayerHealth RevivingTarget { get; private set; }
 
         public event Action<PlayerHealth> Damaged;
+        /// <summary>Raised as the player goes down, before the last-stand pistol comes out (perks are lost here).</summary>
+        public event Action<PlayerHealth> GoingDown;
         public event Action<PlayerHealth> WentDown;
         public event Action<PlayerHealth> Revived;
         public event Action<PlayerHealth> BledOut;
@@ -100,6 +102,7 @@ namespace ZombiesPort
             Player.IsDowned = true;
             StopReviving();
             _reviveTrigger.enabled = !selfRevive;
+            GoingDown?.Invoke(this);   // Before the pistol swap, so losing Mule Kick takes the 3rd gun, not the pistol.
             if (_weapon != null) _weapon.EnterLastStand(solo);
             WentDown?.Invoke(this);
         }

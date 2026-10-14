@@ -38,7 +38,8 @@ This creates and saves `Assets/Scenes/ZombiesTestLevel.unity`:
 | The player's spawn | the centre of a 60 × 60 m floor |
 | Behind the player | a boarded window, with zombies spawning outside it |
 | Left | three wall guns (M14, Olympia, MP40) |
-| Right | Quick Revive, Juggernog, the power switch, and the Mystery Box |
+| Right | the Mystery Box, the power switch, then all eight perk machines in a row |
+| Ahead-left | a 1.5 m ledge with a ramp: drop off it with PhD Flopper to set it off |
 | Ahead | a 1000-point door into a second room, which has a second Mystery Box spot |
 | Overall | round system, health and last stand, perks, power-ups, and hellhound rounds (round 5, 6 or 7, then every 4–5 rounds) |
 
@@ -67,6 +68,7 @@ Useful test shortcuts (Play mode; right-click a component's header in the Inspec
 | **Round System** → RoundDirector | **Debug: Kill All Zombies** (skip a round) |
 | **Round System** → PowerUpDirector | **Debug: Drop Nuke / Max Ammo / ...** |
 | **Round System** → DogRoundDirector | **Debug: Next Round Is a Dog Round**, then kill all zombies to get there |
+| **Player** → PlayerPerks | **Debug: Give All Perks** (all eight at once, past the 4-perk limit; the HUD shows the first four) |
 
 ## 5. Put it on the phone
 

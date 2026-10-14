@@ -48,6 +48,7 @@ namespace ZombiesPort
         public event Action<ZombieAgent, HitZone> ZombieHit;
 
         ZombiePlayer _player;
+        PlayerPerks _perks;
         readonly Dictionary<string, WeaponState> _states = new Dictionary<string, WeaponState>();
         readonly Dictionary<string, GameObject> _viewModels = new Dictionary<string, GameObject>();
         readonly RaycastHit[] _hits = new RaycastHit[16];
@@ -67,6 +68,7 @@ namespace ZombiesPort
         void Awake()
         {
             _player = GetComponent<ZombiePlayer>();
+            _perks = GetComponent<PlayerPerks>();
             if (input == null) input = FindFirstObjectByType<MobileInput>();
             if (playerCamera == null) playerCamera = GetComponentInChildren<Camera>();
             if (catalog.Count == 0 || catalog[0] == null) catalog.Insert(0, WeaponDefinition.CreateM1911());
@@ -77,12 +79,15 @@ namespace ZombiesPort
         void Start()
         {
             _player.Weapons.OnWeaponGiven += OnWeaponGiven;
+            _player.Weapons.OnWeaponTaken += OnWeaponTaken;
             Equip(_player.Weapons.Current);
         }
 
         void OnDestroy()
         {
-            if (_player != null && _player.Weapons != null) _player.Weapons.OnWeaponGiven -= OnWeaponGiven;
+            if (_player == null || _player.Weapons == null) return;
+            _player.Weapons.OnWeaponGiven -= OnWeaponGiven;
+            _player.Weapons.OnWeaponTaken -= OnWeaponTaken;
         }
 
         void Update()
@@ -93,6 +98,9 @@ namespace ZombiesPort
             if (Current == null || Current.Stats.Id != _player.Weapons.Current) Equip(_player.Weapons.Current);
             if (Current == null || input == null) return;
 
+            // Speed Cola and Double Tap (set before Tick and before any reload or shot starts).
+            Current.ReloadTimeScale = _perks != null && _perks.HasSpeedCola ? PerkEffects.ReloadTimeMultiplier : 1f;
+            Current.FireIntervalScale = _perks != null && _perks.HasDoubleTap ? PerkEffects.FireIntervalMultiplier : 1f;
             Current.Tick(now);
 
             // Downed players can still shoot their pistol. Reviving, drinking or spectating can't.
@@ -137,7 +145,9 @@ namespace ZombiesPort
             if (playerCamera == null) return;
 
             // Random spread inside a cone, tighter when aiming.
-            float spread = Mathf.Lerp(stats.HipSpreadDegrees, stats.AdsSpreadDegrees, AimAmount);
+            float hip = stats.HipSpreadDegrees;
+            if (_perks != null && _perks.HasDeadshot) hip *= PerkEffects.DeadshotHipSpreadMultiplier;
+            float spread = Mathf.Lerp(hip, stats.AdsSpreadDegrees, AimAmount);
             Vector2 jitter = UnityEngine.Random.insideUnitCircle * spread;
             Transform cam = playerCamera.transform;
             Vector3 dir = Quaternion.AngleAxis(jitter.x, cam.up) * (Quaternion.AngleAxis(jitter.y, cam.right) * cam.forward);
@@ -302,6 +312,9 @@ namespace ZombiesPort
             var state = GetState(id);
             if (refill) state.RefillToStart(); // A duplicate from the box or wall refills ammo.
         }
+
+        /// <summary>A gun swapped out (box) or taken (Mule Kick lost): buying it again starts with fresh ammo.</summary>
+        void OnWeaponTaken(string id) => _states.Remove(id);
 
         void Equip(string id)
         {

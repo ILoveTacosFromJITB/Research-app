@@ -103,6 +103,11 @@ namespace ZombiesPort
         public int Reserve { get; private set; }
         public bool IsReloading { get; private set; }
 
+        /// <summary>Speed Cola sets 0.5: reloads take half as long.</summary>
+        public float ReloadTimeScale { get; set; } = 1f;
+        /// <summary>Double Tap sets 0.75: less time between shots.</summary>
+        public float FireIntervalScale { get; set; } = 1f;
+
         float _reloadStarted, _reloadEnds, _nextShot;
         bool _triggerReleased = true;
         bool _dryFiredThisPull;
@@ -165,7 +170,7 @@ namespace ZombiesPort
             }
 
             Clip--;
-            _nextShot = now + Stats.ShotInterval;
+            _nextShot = now + Stats.ShotInterval * FireIntervalScale;
             _triggerReleased = false;
             return FireResult.Fired;
         }
@@ -175,7 +180,7 @@ namespace ZombiesPort
             if (IsReloading || Clip >= Stats.MagazineSize || Reserve <= 0) return false;
             IsReloading = true;
             _reloadStarted = now;
-            _reloadEnds = now + (Clip == 0 ? Stats.EmptyReloadSeconds : Stats.ReloadSeconds);
+            _reloadEnds = now + (Clip == 0 ? Stats.EmptyReloadSeconds : Stats.ReloadSeconds) * ReloadTimeScale;
             return true;
         }
 
