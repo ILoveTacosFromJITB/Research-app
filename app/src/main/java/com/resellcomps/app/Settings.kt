@@ -25,6 +25,11 @@ class Settings(context: Context) {
         get() = str("ebay_client_secret")
         set(v) = put("ebay_client_secret", v)
 
+    /** Free AI naming: Gemini API key from Google AI Studio. */
+    var geminiKey: String
+        get() = str("gemini_key")
+        set(v) = put("gemini_key", v)
+
     /** Built-in Lens: Google Cloud Vision web detection. */
     var googleVisionKey: String
         get() = str("google_vision_key")

@@ -149,6 +149,7 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
     var ebaySecret by remember { mutableStateOf(st.ebayClientSecret) }
     var readSold by remember { mutableStateOf(st.readSoldPage) }
     var visionKey by remember { mutableStateOf(st.googleVisionKey) }
+    var geminiKey by remember { mutableStateOf(st.geminiKey) }
     var anthropic by remember { mutableStateOf(st.anthropicKey) }
     var serp by remember { mutableStateOf(st.serpApiKey) }
     var model by remember { mutableStateOf(st.model) }
@@ -174,6 +175,20 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
         HorizontalDivider()
         if (mode == Mode.FREE) {
             Text("Free mode", style = MaterialTheme.typography.titleMedium)
+            Text("Identify with Gemini (free, recommended)", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Recognizes what's in your photos and writes the search for you. Free key, no card: " +
+                    "aistudio.google.com → Get API key → Create API key. The free tier has daily limits, and " +
+                    "Google may use free-tier requests to improve its products.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            OutlinedTextField(
+                value = geminiKey, onValueChange = { geminiKey = it },
+                label = { Text("Gemini API key") }, singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            HorizontalDivider()
             Text("Built-in visual search (like Google Lens)", style = MaterialTheme.typography.bodyLarge)
             Text(
                 "Finds the same item on the web from your photo, names it, then searches sold and active " +
@@ -205,7 +220,7 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
             )
-            Text("AI naming (optional, most accurate)", style = MaterialTheme.typography.bodyLarge)
+            Text("Claude naming (optional, paid)", style = MaterialTheme.typography.bodyLarge)
             Text(
                 "Add an Anthropic key and the app reads tags, logos and model numbers like you would and writes " +
                     "the search for you (e.g. \"vintage hanes beefy\", \"bose 700\"). Uses Claude's cheapest model, " +
@@ -264,6 +279,7 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
                 st.ebayClientSecret = ebaySecret
                 st.readSoldPage = readSold
                 st.googleVisionKey = visionKey
+                st.geminiKey = geminiKey
                 st.anthropicKey = anthropic
                 st.serpApiKey = serp
                 st.model = model

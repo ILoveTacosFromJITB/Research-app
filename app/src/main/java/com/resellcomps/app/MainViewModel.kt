@@ -10,6 +10,7 @@ import com.resellcomps.core.CompsReport
 import com.resellcomps.core.EbayBrowseApi
 import com.resellcomps.core.FreeCompsFinder
 import com.resellcomps.core.FreeIdentification
+import com.resellcomps.core.GeminiService
 import com.resellcomps.core.GoogleVision
 import com.resellcomps.core.ItemIdentification
 import com.resellcomps.core.SerpApiEbay
@@ -120,7 +121,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _screen.value = Screen.Busy("Identifying the item…")
             runCatching {
-                if (useAiInFree) {
+                if (settings.mode == Mode.FREE && settings.geminiKey.isNotBlank()) {
+                    // Free AI naming first; Lens matches ride along if a Vision key is set.
+                    withContext(Dispatchers.IO) {
+                        GeminiService(settings.geminiKey).identify(photos, hint)
+                            .copy(visualMatches = lens(photos).first?.matches.orEmpty())
+                    }
+                } else if (useAiInFree) {
                     withContext(Dispatchers.IO) {
                         val named = ClaudeService(settings.anthropicKey, ClaudeService.LOW_COST_MODEL).identify(photos, hint)
                         // Keep the Lens matches alongside the AI's name.

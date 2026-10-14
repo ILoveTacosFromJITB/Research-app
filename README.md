@@ -10,7 +10,10 @@ would type it (e.g. "vintage hanes beefy", "bose 700"). Tap **eBay Active** or *
 eBay's results for it, or Poshmark/Mercari sold. If it can't read enough, tap **Add tag photo** and
 take a close-up of the tag or label. **Show prices in the app** runs the full comps lookup below.
 
-With an Anthropic key in Settings, Claude's cheapest model writes the search (most accurate, roughly a
+With a free **Gemini** key in Settings (aistudio.google.com → Get API key, no card), the app
+recognizes the item and writes the search at no cost; Gemini's free tier has daily limits and Google
+may use free-tier requests to improve its products. Alternatively, with an Anthropic key, Claude's
+cheapest model writes the search (most accurate, roughly a
 tenth of a cent per scan); without one, the built-in visual search and on-phone tag reading do it.
 
 ## Two modes
