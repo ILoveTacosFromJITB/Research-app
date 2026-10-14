@@ -153,7 +153,7 @@ namespace ZombiesPort
         // GSC played the "no_money" voice line. The touch version shakes the button and buzzes.
         void OnResult(InteractResult result)
         {
-            if (result != InteractResult.NotEnoughPoints) return;
+            if (result != InteractResult.NotEnoughPoints && result != InteractResult.Denied) return;
             _shakeUntil = Time.unscaledTime + shakeSeconds;
 #if UNITY_IOS || UNITY_ANDROID
             if (vibrateOnDenied) Handheld.Vibrate();

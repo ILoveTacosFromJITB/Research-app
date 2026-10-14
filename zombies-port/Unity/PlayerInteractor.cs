@@ -15,7 +15,8 @@ using UnityEngine;
 
 namespace ZombiesPort
 {
-    public enum InteractResult { Done, NotEnoughPoints, Unavailable }
+    /// <summary>Denied = refused for a reason other than points (perk limit, no power). The button shakes for it too.</summary>
+    public enum InteractResult { Done, NotEnoughPoints, Unavailable, Denied }
 
     /// <summary>What the on-screen button should show. GSC: set_hint_string / sethintstring.</summary>
     public struct InteractPrompt : IEquatable<InteractPrompt>

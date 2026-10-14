@@ -157,6 +157,9 @@ namespace ZombiesPort
 
         public event Action<int> OnRoundChanged;  // new round number, used for the chalk tally HUD
 
+        /// <summary>level.solo_lives_given: solo Quick Revive can only be bought 3 times per game.</summary>
+        public SoloQuickReviveTracker SoloQuickRevive { get; } = new SoloQuickReviveTracker();
+
         /// <summary>Double Points sets this to 2 (zombie_point_scalar).</summary>
         public int PointMultiplier { get; set; } = 1;
 

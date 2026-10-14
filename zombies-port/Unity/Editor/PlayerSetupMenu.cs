@@ -4,7 +4,7 @@
 // Builds a playable first-person player and the full touch layout in one click:
 //
 //   Player                CharacterController, ZombiePlayer, PlayerInteractor, PlayerHealth,
-//     CameraPivot         PlayerWeapon, FirstPersonController, AudioSource
+//     CameraPivot         PlayerPerks, PlayerWeapon, FirstPersonController, AudioSource
 //       PlayerCamera      Camera (MainCamera) + AudioListener
 //   HUD Canvas / SafeArea (reused if it already exists)
 //     TouchControls       MobileInput + its own Canvas, drawn behind the rest of the HUD
@@ -51,6 +51,7 @@ namespace ZombiesPort.EditorTools
             player.AddComponent<ZombiePlayer>();
             player.AddComponent<PlayerInteractor>();
             player.AddComponent<PlayerHealth>();
+            player.AddComponent<PlayerPerks>();
             var audio = player.AddComponent<AudioSource>();
             audio.playOnAwake = false;
             audio.spatialBlend = 0f; // The player's own gun is heard "in the head", not positioned.

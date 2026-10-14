@@ -47,7 +47,7 @@ namespace ZombiesPort
     public class PlayerVitals
     {
         public VitalsConfig Config { get; }
-        public int MaxHealth { get; set; }        // Juggernog raises this (zombie_perk_juggernaut_health = 160)
+        public int MaxHealth { get; private set; } // Juggernog raises this (zombie_perk_juggernaut_health = 160)
         public float Health { get; private set; }
         public LifeState State { get; private set; } = LifeState.Alive;
 
@@ -74,6 +74,16 @@ namespace ZombiesPort
             Config = config ?? new VitalsConfig();
             MaxHealth = Config.MaxHealth;
             Health = MaxHealth;
+        }
+
+        /// <summary>
+        /// SetMaxHealth(): Juggernog sets 160, losing it sets 100. Current health is clamped to
+        /// the new maximum; when raised, regeneration tops the player up.
+        /// </summary>
+        public void SetMaxHealth(int max)
+        {
+            MaxHealth = Math.Max(1, max);
+            if (Health > MaxHealth) Health = MaxHealth;
         }
 
         /// <summary>
