@@ -52,6 +52,7 @@ import com.resellcomps.core.SoldSearchLinks
 
 /** Ready-made questions for Google Lens, picked with one tap. */
 private val LENS_QUESTIONS = listOf(
+    "eBay active and sold listings links for this",
     "What year is this tag?",
     "What brand is this?",
     "Is this vintage?",
