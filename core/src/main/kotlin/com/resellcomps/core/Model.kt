@@ -12,6 +12,8 @@ data class ItemIdentification(
     val identified: Boolean,
     /** UPC/EAN read from a barcode in the photo, if any. */
     val gtin: String? = null,
+    /** Other ways to search for it (with "vintage"/era, more specific, broader), best first. */
+    val altQueries: List<String> = emptyList(),
     /** "yes", "no" or "unsure" — the AI's call on whether the item is vintage. */
     val vintage: String? = null,
     /** Decade or year range, e.g. "1990s". */

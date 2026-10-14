@@ -8,6 +8,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -66,7 +68,7 @@ private fun open(context: Context, url: String) =
  * The quick screen: the search the app wrote for you, and one-tap buttons that
  * open eBay's active and sold results for it.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun IdentifiedScreen(
     item: ItemIdentification,
@@ -122,6 +124,21 @@ fun IdentifiedScreen(
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Done),
             modifier = Modifier.fillMaxWidth().focusRequester(focus),
         )
+
+        // Other searches the AI suggests (with "vintage", more specific, broader). Tap to use one.
+        val options = (listOf(item.searchQuery) + item.altQueries).filter { it.isNotBlank() }.distinct()
+        if (options.size > 1) {
+            Text("Other searches — tap to use", style = MaterialTheme.typography.labelLarge)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                options.forEach { option ->
+                    FilterChip(
+                        selected = q == option,
+                        onClick = { query = option },
+                        label = { Text(option) },
+                    )
+                }
+            }
+        }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Button(

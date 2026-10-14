@@ -45,6 +45,12 @@ object IdentifyPrompt {
         "patagonia better sweater", "vintage levis 501 big e", "sony wh-1000xm4",
         "alvin and the chipmunks road chip blu-ray". If the photos do not show an identifiable
         item, set identified to false and explain in details.
+
+        alt_queries: 2 to 4 other searches a reseller would also try, different from search_query
+        and from each other, in the same short lowercase style. Mix: one adding "vintage" or the
+        era (only if it could plausibly be vintage), one more specific (exact line, colorway,
+        model number or tag name), one with the name buyers commonly use, and one broader to find
+        more results. Base them on what you see; don't invent details.
     """.trimIndent()
 
     fun userText(photoCount: Int, hint: String?): String = buildString {
@@ -63,6 +69,10 @@ object IdentifyPrompt {
         details = o.str("details") ?: "",
         searchQuery = o.str("search_query")?.trim()?.lowercase() ?: "",
         confidence = o.str("confidence") ?: "low",
+        altQueries = ((o["alt_queries"] as? kotlinx.serialization.json.JsonArray).orEmpty()
+            .mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.trim()?.lowercase() }
+            .filter { it.isNotBlank() } - setOfNotNull(o.str("search_query")?.trim()?.lowercase()))
+            .distinct().take(4),
         vintage = o.str("vintage")?.lowercase()?.takeIf { it in setOf("yes", "no", "unsure") },
         era = o.str("era"),
         vintageClues = o.str("vintage_clues")

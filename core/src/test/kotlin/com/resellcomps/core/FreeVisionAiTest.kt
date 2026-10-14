@@ -65,4 +65,15 @@ class FreeVisionAiTest {
         assertEquals("1990s", id.era)
         assertEquals("single-stitch hem, made in USA tag", id.vintageClues)
     }
+
+    @Test fun readsAlternativeSearchesWithoutDuplicates() {
+        val content = """{"identified":true,"name":"Mets jersey","search_query":"russell athletic mets jersey",
+            "alt_queries":["Vintage Russell Athletic Mets Jersey","russell athletic mets jersey","mets diamond collection jersey",
+            "mets jersey","mets jersey","90s mets baby blue jersey"],"confidence":"high"}"""
+        val body = """{"choices":[{"message":{"content":${JsonPrimitive(content)}}}]}"""
+        assertEquals(
+            listOf("vintage russell athletic mets jersey", "mets diamond collection jersey", "mets jersey", "90s mets baby blue jersey"),
+            FreeVisionAi.parseAnswer(body).altQueries,
+        )
+    }
 }
