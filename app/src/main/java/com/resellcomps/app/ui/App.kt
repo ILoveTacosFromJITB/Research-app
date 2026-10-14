@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -78,7 +80,9 @@ fun App(vm: MainViewModel) {
                 )
             },
         ) { padding ->
-            val modifier = Modifier.padding(padding).fillMaxSize()
+            // The app draws edge-to-edge, so the keyboard doesn't shrink the window by itself:
+            // pad every screen by the keyboard's height so a focused field scrolls into view above it.
+            val modifier = Modifier.padding(padding).consumeWindowInsets(padding).fillMaxSize().imePadding()
             when {
                 showSettings -> SettingsScreen(vm, modifier) { showSettings = false }
                 else -> when (val s = screen) {
