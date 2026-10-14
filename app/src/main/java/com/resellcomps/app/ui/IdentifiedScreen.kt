@@ -3,7 +3,13 @@ package com.resellcomps.app.ui
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +34,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.text.input.ImeAction
@@ -133,8 +142,27 @@ fun IdentifiedScreen(
 
         if (!textMode) {
 
-            TextButton(onClick = { photos.firstOrNull()?.let { GoogleLens.open(context, it) } }) {
-                Text("Wrong item? Open in Google Lens")
+            if (photos.size == 1) {
+                TextButton(onClick = { GoogleLens.open(context, photos.first()) }) {
+                    Text("Wrong item? Open in Google Lens")
+                }
+            } else {
+                // Lens searches one image at a time, so let the user choose which photo to send.
+                Text("Wrong item? Tap a photo to search it with Google Lens", style = MaterialTheme.typography.labelLarge)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    itemsIndexed(photos) { i, photo ->
+                        val bitmap = remember(photo) { BitmapFactory.decodeByteArray(photo, 0, photo.size)?.asImageBitmap() }
+                        bitmap?.let {
+                            Image(
+                                bitmap = it,
+                                contentDescription = "Search photo ${i + 1} with Google Lens",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.size(84.dp).clip(MaterialTheme.shapes.medium)
+                                    .clickable { GoogleLens.open(context, photo) },
+                            )
+                        }
+                    }
+                }
             }
 
             TextButton(onClick = { showDetails = !showDetails }) {

@@ -12,7 +12,7 @@ object GoogleLens {
 
     fun open(context: Context, jpeg: ByteArray) {
         val dir = File(context.cacheDir, "photos").apply { mkdirs() }
-        val file = File(dir, "lens.jpg").apply { writeBytes(jpeg) }
+        val file = File(dir, "lens_${jpeg.contentHashCode()}.jpg").apply { writeBytes(jpeg) }
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "image/jpeg"
