@@ -89,6 +89,8 @@ fun App(vm: MainViewModel) {
                         onRetake = vm::reset,
                         onAddPhoto = vm::backToPhotos,
                         onOpenSettings = { showSettings = true },
+                        lensQuestion = vm.settings.lensQuestion,
+                        onLensQuestionChange = { vm.settings.lensQuestion = it },
                     )
                     is Screen.Failed -> FailedScreen(
                         s, modifier,

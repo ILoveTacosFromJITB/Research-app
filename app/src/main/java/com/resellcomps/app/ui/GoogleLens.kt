@@ -33,7 +33,7 @@ object GoogleLens {
             clipboard.setPrimaryClip(ClipData.newPlainText("search", text))
             Toast.makeText(
                 context,
-                "Search copied — in Lens tap \"Add to your search\" and paste it",
+                "\"$text\" copied — in Lens tap \"Add to your search\" and paste it",
                 Toast.LENGTH_LONG,
             ).show()
         }

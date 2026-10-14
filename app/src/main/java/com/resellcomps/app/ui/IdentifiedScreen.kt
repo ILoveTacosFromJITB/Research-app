@@ -6,6 +6,7 @@ import android.net.Uri
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -18,6 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +50,14 @@ import androidx.compose.ui.unit.dp
 import com.resellcomps.core.ItemIdentification
 import com.resellcomps.core.SoldSearchLinks
 
+/** Ready-made questions for Google Lens, picked with one tap. */
+private val LENS_QUESTIONS = listOf(
+    "What year is this tag?",
+    "What brand is this?",
+    "Is this vintage?",
+    "What is this called?",
+)
+
 private fun open(context: Context, url: String) =
     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
 
@@ -54,6 +65,7 @@ private fun open(context: Context, url: String) =
  * The quick screen: the search the app wrote for you, and one-tap buttons that
  * open eBay's active and sold results for it.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IdentifiedScreen(
     item: ItemIdentification,
@@ -62,6 +74,8 @@ fun IdentifiedScreen(
     onRetake: () -> Unit,
     onAddPhoto: () -> Unit,
     onOpenSettings: () -> Unit,
+    lensQuestion: String,
+    onLensQuestionChange: (String) -> Unit,
 ) {
     val context = LocalContext.current
     var query by rememberSaveable(item) { mutableStateOf(item.searchQuery) }
@@ -142,25 +156,43 @@ fun IdentifiedScreen(
 
         if (!textMode) {
 
-            if (photos.size == 1) {
-                TextButton(onClick = { GoogleLens.open(context, photos.first(), q) }) {
-                    Text("Wrong item? Open in Google Lens")
+            // Lens can't be handed text by another app, so the question is copied to paste into
+            // its "Add to your search" box. Empty = the search words above.
+            var lensText by rememberSaveable { mutableStateOf(lensQuestion) }
+            val lensSends = lensText.trim().ifEmpty { q }
+            Text("Search with Google Lens", style = MaterialTheme.typography.titleSmall)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                (listOf("" to "My search") + LENS_QUESTIONS.map { it to it }).forEach { (value, label) ->
+                    FilterChip(
+                        selected = lensText.trim() == value,
+                        onClick = { lensText = value; onLensQuestionChange(value) },
+                        label = { Text(label) },
+                    )
                 }
-            } else {
-                // Lens searches one image at a time, so let the user choose which photo to send.
-                Text("Wrong item? Tap a photo to search it with Google Lens (your search words are copied to paste in)", style = MaterialTheme.typography.labelLarge)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    itemsIndexed(photos) { i, photo ->
-                        val bitmap = remember(photo) { BitmapFactory.decodeByteArray(photo, 0, photo.size)?.asImageBitmap() }
-                        bitmap?.let {
-                            Image(
-                                bitmap = it,
-                                contentDescription = "Search photo ${i + 1} with Google Lens",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.size(84.dp).clip(MaterialTheme.shapes.medium)
-                                    .clickable { GoogleLens.open(context, photo, q) },
-                            )
-                        }
+            }
+            OutlinedTextField(
+                value = lensText,
+                onValueChange = { lensText = it; onLensQuestionChange(it) },
+                label = { Text("Question sent with the photo") },
+                placeholder = { Text(q.ifEmpty { "e.g. what year is this tag" }) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Text(
+                "Tap a photo: Lens opens with it and your question is copied — tap \"Add to your search\" in Lens and paste.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                itemsIndexed(photos) { i, photo ->
+                    val bitmap = remember(photo) { BitmapFactory.decodeByteArray(photo, 0, photo.size)?.asImageBitmap() }
+                    bitmap?.let {
+                        Image(
+                            bitmap = it,
+                            contentDescription = "Search photo ${i + 1} with Google Lens",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(84.dp).clip(MaterialTheme.shapes.medium)
+                                .clickable { GoogleLens.open(context, photo, lensSends) },
+                        )
                     }
                 }
             }

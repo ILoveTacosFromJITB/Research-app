@@ -11,6 +11,11 @@ class Settings(context: Context) {
         get() = prefs.getString("free_ai_key", "").orEmpty()
         set(v) = prefs.edit().putString("free_ai_key", v.trim()).apply()
 
+    /** What goes with a photo sent to Google Lens; empty means "my search words". */
+    var lensQuestion: String
+        get() = prefs.getString("lens_question", "").orEmpty()
+        set(v) = prefs.edit().putString("lens_question", v).apply()
+
     var seenSettings: Boolean
         get() = prefs.getBoolean("seen_settings", false)
         set(v) = prefs.edit().putBoolean("seen_settings", v).apply()
