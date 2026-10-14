@@ -157,7 +157,7 @@ body.touch #ammo{font-size:26px}
 #dmg{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 35%,rgba(150,0,0,.85) 100%);opacity:0}
 #downed{position:absolute;inset:0;display:grid;place-items:center;background:rgba(80,0,0,.35);font-family:var(--f-display);font-size:28px;color:#fff;text-shadow:0 0 8px #000}
 #notice{position:absolute;left:50%;top:calc(14px + var(--sa-t));transform:translateX(-50%);font-size:12px;letter-spacing:.14em;text-transform:uppercase;
-  background:rgba(0,0,0,.55);padding:6px 12px;color:var(--chalk);white-space:nowrap}
+  background:rgba(0,0,0,.55);padding:6px 12px;color:var(--chalk);width:max-content;max-width:min(86vw,560px);text-align:center;text-wrap:balance}
 #fps{position:absolute;left:calc(8px + var(--sa-l));top:calc(6px + var(--sa-t));font-size:11px;color:var(--smoke)}
 
 /* ---------- Pause / Game over ---------- */
@@ -1520,7 +1520,7 @@ function addPoints(n, isHit, raw) {
   const v = raw ? n : n * (G_.dbl > 0 ? 2 : 1); P.points += v; hudPoints(v);
   if (v > 0 && !raw) { G_.earned += v; if (G_.earned > G_.dropAt) { G_.dropInc *= 1.14; G_.dropAt = G_.earned + G_.dropInc; G_.dropReady = true; } }
 }
-function spend(n) { if (P.points < n) { SFX.deny(); return false; } P.points -= n; hudPoints(-n); SFX.buy(); return true; }
+function spend(n) { if (P.points < n) { SFX.deny(); showNotice(`Not enough points: you need ${n - P.points} more. Shoot zombies to earn them.`); return false; } P.points -= n; hudPoints(-n); SFX.buy(); return true; }
 function giveWeapon(w) {
   if (P.weapons.length < (P.perks.has('mule') ? 3 : 2)) { P.weapons.push(w); P.cur = P.weapons.length - 1; }
   else P.weapons[P.cur] = w;
@@ -2341,6 +2341,7 @@ function startGame() {
   resetGame();
   $('#menu').hidden = true; $('#over').hidden = true; $('#pause').hidden = true; $('#hud').hidden = false; $('#touch').hidden = !isTouch;
   G_.state = 'playing';
+  setTimeout(() => { if (G_.state === 'playing' && G_.round <= 1) showNotice('Earn points by shooting zombies, then open the doors on either side of the lobby (750)'); }, 2500);
   if (isTouch) { try { const el = document.documentElement; const r = el.requestFullscreen && el.requestFullscreen({ navigationUI: 'hide' }); if (r && r.then) r.then(() => { try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) {} }).catch(() => {}); } catch (e) {} }
   else lockMouse();
   checkRotate();
