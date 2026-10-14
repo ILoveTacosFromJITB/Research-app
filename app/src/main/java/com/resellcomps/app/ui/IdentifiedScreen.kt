@@ -180,6 +180,13 @@ fun IdentifiedScreen(
             // its "Add to your search" box. Empty = the search words above.
             var lensText by rememberSaveable { mutableStateOf(lensQuestion) }
             val lensSends = lensText.trim().ifEmpty { q }
+            // eBay image search: only when the eBay app accepts a shared photo.
+            val ebayImage = remember { EbayImageSearch.isAvailable(context) }
+            if (ebayImage) {
+                Text("eBay image search — tap a photo", style = MaterialTheme.typography.titleSmall)
+                PhotoPicker(photos, "Search photo %d on eBay") { EbayImageSearch.open(context, it) }
+            }
+
             Text("Search with Google Lens", style = MaterialTheme.typography.titleSmall)
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 (listOf("" to "My search") + LENS_QUESTIONS.map { it to it }).forEach { (value, label) ->
@@ -202,20 +209,7 @@ fun IdentifiedScreen(
                 "Tap a photo: Lens opens with it and your question is copied — tap \"Add to your search\" in Lens and paste.",
                 style = MaterialTheme.typography.bodySmall,
             )
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                itemsIndexed(photos) { i, photo ->
-                    val bitmap = remember(photo) { BitmapFactory.decodeByteArray(photo, 0, photo.size)?.asImageBitmap() }
-                    bitmap?.let {
-                        Image(
-                            bitmap = it,
-                            contentDescription = "Search photo ${i + 1} with Google Lens",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.size(84.dp).clip(MaterialTheme.shapes.medium)
-                                .clickable { GoogleLens.open(context, photo, lensSends) },
-                        )
-                    }
-                }
-            }
+            PhotoPicker(photos, "Search photo %d with Google Lens") { GoogleLens.open(context, it, lensSends) }
 
             TextButton(onClick = { showDetails = !showDetails }) {
                 Text(if (showDetails) "Hide what the app saw" else "What the app saw")
@@ -252,6 +246,24 @@ private fun VintageCard(item: ItemIdentification) {
             item.vintageClues?.let { Text("Based on: $it", style = MaterialTheme.typography.bodyMedium) }
             if (item.vintage == "unsure") {
                 Text("Add a clear photo of the tag (and the hem stitching) to settle it.", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+}
+
+/** A row of the scan's photos; tapping one hands it to [onPick]. */
+@Composable
+private fun PhotoPicker(photos: List<ByteArray>, description: String, onPick: (ByteArray) -> Unit) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        itemsIndexed(photos) { i, photo ->
+            val bitmap = remember(photo) { BitmapFactory.decodeByteArray(photo, 0, photo.size)?.asImageBitmap() }
+            bitmap?.let {
+                Image(
+                    bitmap = it,
+                    contentDescription = description.format(i + 1),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(84.dp).clip(MaterialTheme.shapes.medium).clickable { onPick(photo) },
+                )
             }
         }
     }
