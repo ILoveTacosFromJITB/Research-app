@@ -64,6 +64,15 @@ namespace ZombiesPort
         /// <summary>Drop out of a toggled aim (for example when knifing or swapping weapons).</summary>
         public void CancelAim() => _aimToggled = false;
 
+        // Disabled (game over, pause menu): release everything so nothing stays held.
+        void OnDisable()
+        {
+            Move = Vector2.zero;
+            Sprint = FireHeld = AimHeld = ReloadPressed = KnifePressed = SwapPressed = false;
+            _lookDegrees = Vector2.zero;
+            _aimToggled = false;
+        }
+
         void Update()
         {
             Move = moveStick != null ? moveStick.Value : Vector2.zero;

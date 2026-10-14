@@ -27,6 +27,13 @@ namespace ZombiesPort
         [SerializeField] float aimMoveMultiplier = 0.6f;
         [SerializeField] float gravity = -20f;
 
+        [Header("Last stand")]
+        [Tooltip("Downed players can crawl slowly while shooting their pistol.")]
+        [SerializeField] float downedCrawlSpeed = 0.8f;
+        [Tooltip("Camera height while downed (meters above the feet).")]
+        [SerializeField] float downedEyeHeight = 0.55f;
+        [SerializeField] float eyeHeightChangeSpeed = 3f;
+
         [Header("Look")]
         [SerializeField] float maxPitch = 85f;
         [Tooltip("Slower turning while aiming down sights, for precision.")]
@@ -43,6 +50,7 @@ namespace ZombiesPort
         ZombiePlayer _player;
         float _pitch;
         float _verticalVelocity;
+        float _standingEyeHeight;
 
         public bool IsSprinting { get; private set; }
 
@@ -53,14 +61,16 @@ namespace ZombiesPort
             if (input == null) input = FindFirstObjectByType<MobileInput>();
             if (weapon == null) weapon = GetComponent<PlayerWeapon>();
             if (cameraPivot == null && Camera.main != null) cameraPivot = Camera.main.transform;
+            if (cameraPivot != null) _standingEyeHeight = cameraPivot.localPosition.y;
         }
 
         void Update()
         {
             if (input == null) return;
-            if (_player.IsDowned) { IsSprinting = false; return; } // Last stand will take over here.
 
+            UpdateEyeHeight();
             Look();
+            if (_player.IsSpectating) { IsSprinting = false; return; } // Bled out: look around only.
             Move();
         }
 
@@ -74,6 +84,17 @@ namespace ZombiesPort
             transform.Rotate(0f, delta.x * scale, 0f, Space.Self);
             _pitch = Mathf.Clamp(_pitch - delta.y * scale, -maxPitch, maxPitch);
             if (cameraPivot != null) cameraPivot.localRotation = Quaternion.Euler(_pitch, 0f, 0f);
+        }
+
+        /// <summary>Drops the camera toward the floor while downed, and back up when revived.</summary>
+        void UpdateEyeHeight()
+        {
+            if (cameraPivot == null) return;
+            float target = _player.IsDowned ? downedEyeHeight : _standingEyeHeight;
+            Vector3 p = cameraPivot.localPosition;
+            if (Mathf.Approximately(p.y, target)) return;
+            p.y = Mathf.MoveTowards(p.y, target, eyeHeightChangeSpeed * Time.deltaTime);
+            cameraPivot.localPosition = p;
         }
 
         bool CrosshairOnZombie()
@@ -91,11 +112,14 @@ namespace ZombiesPort
             Vector2 stick = input.Move;
             bool aiming = weapon != null && weapon.IsAiming;
             bool firing = input.FireHeld;
-            IsSprinting = input.Sprint && !aiming && !firing && !_player.IsDrinkingPerk;
+            bool downed = _player.IsDowned;
+            IsSprinting = input.Sprint && !aiming && !firing && !downed && !_player.IsDrinkingPerk && !_player.IsReviving;
 
             float speed = walkSpeed;
             if (weapon != null && weapon.Current != null) speed *= weapon.Current.Stats.MoveSpeedScale;
-            if (IsSprinting) speed *= sprintMultiplier;
+            if (downed) speed = downedCrawlSpeed;
+            else if (_player.IsReviving) speed = 0f;            // Reviving roots you in place, as in BO1.
+            else if (IsSprinting) speed *= sprintMultiplier;
             else if (aiming) speed *= aimMoveMultiplier;
 
             Vector3 planar = (transform.right * stick.x + transform.forward * stick.y) * speed;

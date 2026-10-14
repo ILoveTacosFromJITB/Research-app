@@ -24,11 +24,13 @@ namespace ZombiesPort
         public string Label;
         public int Cost;          // 0 = no cost shown
         public bool Affordable;
+        public float Progress;    // 0..1 for hold actions such as reviving; 0 = no bar
 
         public static readonly InteractPrompt Hidden = new InteractPrompt();
 
         public bool Equals(InteractPrompt o) =>
-            Visible == o.Visible && Label == o.Label && Cost == o.Cost && Affordable == o.Affordable;
+            Visible == o.Visible && Label == o.Label && Cost == o.Cost && Affordable == o.Affordable &&
+            Math.Abs(Progress - o.Progress) < 0.01f;
     }
 
     /// <summary>Anything the context button can use: Mystery Box now, wall buys, perks and doors later.</summary>
@@ -48,6 +50,13 @@ namespace ZombiesPort
         public ZombiePlayer Player { get; private set; }
         public IInteractable Current { get; private set; }
         public InteractPrompt Prompt { get; private set; }
+        /// <summary>
+        /// True while the interact button is held down. Hold actions (reviving a teammate,
+        /// GSC: is_reviving() = can_revive() and UseButtonPressed()) read this every frame.
+        /// </summary>
+        public bool IsHolding { get; private set; }
+
+        public void SetHolding(bool holding) => IsHolding = holding;
 
         public event Action<InteractPrompt> PromptChanged;
         public event Action<InteractResult> Interacted;

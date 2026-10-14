@@ -55,6 +55,35 @@ namespace ZombiesPort
             return Tactical == weapon;
         }
 
+        /// <summary>
+        /// Adds a weapon without the slot limit or swapping anything out. Last stand uses this
+        /// to hand over the M1911 when both slots hold other guns (GSC GiveWeapon does the same).
+        /// </summary>
+        public void AddTemporary(string weapon)
+        {
+            if (!_primaries.Contains(weapon)) _primaries.Add(weapon);
+        }
+
+        /// <summary>Takes a weapon away. If it was in hand, switches to the first remaining one.</summary>
+        public void Remove(string weapon)
+        {
+            if (!_primaries.Remove(weapon)) return;
+            if (Current == weapon) Current = _primaries.Count > 0 ? _primaries[0] : null;
+        }
+
+        /// <summary>
+        /// Bleeding out loses everything: on respawn the player starts again with just the
+        /// pistol (spectator_respawn gives the default loadout).
+        /// </summary>
+        public void ResetTo(string startingPistol)
+        {
+            _primaries.Clear();
+            Tactical = null;
+            HasMuleKick = false;
+            _primaries.Add(startingPistol);
+            Current = startingPistol;
+        }
+
         public void SwitchTo(string weapon)
         {
             if (_primaries.Contains(weapon)) Current = weapon;

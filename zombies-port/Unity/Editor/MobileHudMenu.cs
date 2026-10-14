@@ -100,6 +100,7 @@ namespace ZombiesPort.EditorTools
             so.FindProperty("label").objectReferenceValue = label;
             so.FindProperty("costText").objectReferenceValue = cost;
             so.ApplyModifiedPropertiesWithoutUndo();
+            LastStandMenu.AddProgressRing(interact); // Shows hold-to-revive progress.
 
             Selection.activeGameObject = buttonGo;
         }

@@ -30,13 +30,15 @@ using UnityEngine.InputSystem;
 namespace ZombiesPort
 {
     [RequireComponent(typeof(CanvasGroup), typeof(Canvas), typeof(GraphicRaycaster))]
-    public class InteractButton : MonoBehaviour, IPointerDownHandler, IPointerClickHandler
+    public class InteractButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerClickHandler
     {
         [Tooltip("Leave empty to find the PlayerInteractor in the scene at startup.")]
         [SerializeField] PlayerInteractor interactor;
         [SerializeField] Button button;
         [SerializeField] TMP_Text label;
         [SerializeField] TMP_Text costText;
+        [Tooltip("Optional Filled image that shows progress for hold actions (reviving).")]
+        [SerializeField] Image progressFill;
 
         [SerializeField] Color affordableColor = Color.white;
         [SerializeField] Color tooExpensiveColor = new Color(1f, 0.3f, 0.3f);
@@ -98,6 +100,7 @@ namespace ZombiesPort
         void OnDisable()
         {
             if (interactor == null) return;
+            interactor.SetHolding(false);
             interactor.PromptChanged -= Apply;
             interactor.Interacted -= OnResult;
         }
@@ -106,7 +109,13 @@ namespace ZombiesPort
         // holding the movement stick or dragging to aim.
         public void OnPointerDown(PointerEventData e)
         {
+            if (_visible && interactor != null) interactor.SetHolding(true);
             if (triggerOnPress) Press();
+        }
+
+        public void OnPointerUp(PointerEventData e)
+        {
+            if (interactor != null) interactor.SetHolding(false);
         }
 
         public void OnPointerClick(PointerEventData e)
@@ -129,6 +138,11 @@ namespace ZombiesPort
             if (button != null) button.interactable = prompt.Visible;
 
             if (label != null) label.text = prompt.Label ?? "";
+            if (progressFill != null)
+            {
+                progressFill.enabled = prompt.Progress > 0f;
+                progressFill.fillAmount = prompt.Progress;
+            }
             if (costText != null)
             {
                 costText.text = prompt.Cost > 0 ? prompt.Cost.ToString() : "";
@@ -167,9 +181,12 @@ namespace ZombiesPort
         {
             // Desktop testing in the editor: F works like the old PC Use key.
 #if UNITY_EDITOR && ENABLE_INPUT_SYSTEM
-            if (Keyboard.current != null && Keyboard.current.fKey.wasPressedThisFrame) Press();
+            var kb = Keyboard.current;
+            if (kb != null && kb.fKey.wasPressedThisFrame) { Press(); if (_visible) interactor?.SetHolding(true); }
+            if (kb != null && kb.fKey.wasReleasedThisFrame) interactor?.SetHolding(false);
 #elif UNITY_EDITOR && ENABLE_LEGACY_INPUT_MANAGER
-            if (Input.GetKeyDown(KeyCode.F)) Press();
+            if (Input.GetKeyDown(KeyCode.F)) { Press(); if (_visible) interactor?.SetHolding(true); }
+            if (Input.GetKeyUp(KeyCode.F)) interactor?.SetHolding(false);
 #endif
             if (Time.unscaledTime < _shakeUntil)
             {

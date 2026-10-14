@@ -40,6 +40,7 @@ namespace ZombiesPort
         public ZombieGameState State => GameBootstrap.Instance.State;
         public int AliveCount => _alive.Count;
         public bool IsBetweenRounds { get; private set; } = true;
+        public bool IsHalted { get; private set; }
 
         readonly List<ZombieAgent> _alive = new List<ZombieAgent>();
         readonly List<ZombieSpawnPoint> _candidates = new List<ZombieSpawnPoint>();
@@ -185,7 +186,7 @@ namespace ZombiesPort
             float bestSqr = float.MaxValue;
             foreach (var p in GameBootstrap.Instance.Players)
             {
-                if (p == null || p.IsDowned) continue;
+                if (p == null || p.IsDowned || p.IsSpectating) continue; // self.ignoreme while downed
                 float d = (p.transform.position - from).sqrMagnitude;
                 if (d < bestSqr) { bestSqr = d; best = p; }
             }
@@ -206,6 +207,17 @@ namespace ZombiesPort
         }
 
         internal void NotifyAttack(ZombieAgent z, ZombiePlayer target) => PlayerAttacked?.Invoke(z, target);
+
+        /// <summary>
+        /// Game over (end_game): stop the round loop and spawning, and freeze every zombie in place.
+        /// </summary>
+        public void Halt()
+        {
+            if (IsHalted) return;
+            IsHalted = true;
+            StopAllCoroutines();
+            foreach (var z in _alive) z.Freeze();
+        }
 
         // ---------------- Testing ----------------
 

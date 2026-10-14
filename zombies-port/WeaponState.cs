@@ -128,6 +128,9 @@ namespace ZombiesPort
             Reserve = Stats.MaxReserve;
         }
 
+        /// <summary>SetWeaponAmmoStock(): set the spare ammo directly (last stand uses this).</summary>
+        public void SetReserve(int reserve) => Reserve = Math.Max(0, reserve);
+
         /// <summary>
         /// Called every frame with the trigger state. holdToRepeat lets a semi-auto keep firing
         /// at its maximum rate while the button is held. On a touch screen, hammering a

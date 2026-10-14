@@ -41,6 +41,8 @@ namespace ZombiesPort
         public int Health { get; private set; }
         public bool IsAlive { get; private set; }
         public ZombieSpeed Speed { get; private set; }
+        /// <summary>Game over: stands still and stops attacking.</summary>
+        public bool IsFrozen { get; private set; }
 
         static readonly int SpeedHash = Animator.StringToHash("Speed");
         static readonly int AttackHash = Animator.StringToHash("Attack");
@@ -86,6 +88,7 @@ namespace ZombiesPort
             _director = director;
             Health = health;
             IsAlive = true;
+            IsFrozen = false;
 
             foreach (var c in _colliders) c.enabled = true;
             if (animator != null) animator.Rebind();
@@ -111,9 +114,15 @@ namespace ZombiesPort
             if (_hasSpeed) animator.SetFloat(SpeedHash, (float)speed);
         }
 
+        public void Freeze()
+        {
+            IsFrozen = true;
+            if (_nav.enabled) _nav.isStopped = true;
+        }
+
         void Update()
         {
-            if (!IsAlive) return;
+            if (!IsAlive || IsFrozen) return;
             float now = Time.time;
 
             if (now >= _nextRepath)

@@ -65,6 +65,11 @@ namespace ZombiesPort
         public int ScoreBonusNeck = 20;        // zombie_score_bonus_neck
         public int ScoreBonusTorso = 10;       // zombie_score_bonus_torso
 
+        // --- Last stand point penalties (init_levelvars) ---
+        public float PenaltyDowned = 0.05f;    // penalty_downed: lost on going down, earned back by the reviver
+        public float PenaltyNoRevive = 0.10f;  // penalty_no_revive: everyone else loses this when a player bleeds out
+        public float PenaltyDied = 0.0f;       // penalty_died: taken from the player who bled out, on respawn
+
         // --- Stuck-zombie failsafe (round_spawn_failsafe) ---
         public bool UseFailsafe = true;        // zombie_use_failsafe
         public float FailsafeIntervalSeconds = 30f;  // wait( 30 )
@@ -101,6 +106,20 @@ namespace ZombiesPort
             Score += points;
             if (addToTotal) ScoreTotal += points;
             OnScoreChanged?.Invoke(this, points);
+        }
+
+        /// <summary>
+        /// player_reduce_points(): penalties take points without a balance check, never below 0.
+        /// Returns how many points were actually lost.
+        /// </summary>
+        public int Lose(int points, bool intermission)
+        {
+            if (intermission || points <= 0) return 0;
+            int lost = Math.Min(points, Score);
+            OldScore = Score;
+            Score -= lost;
+            if (lost > 0) OnScoreChanged?.Invoke(this, -lost);
+            return lost;
         }
 
         /// <summary>
@@ -287,6 +306,25 @@ namespace ZombiesPort
             else bonus = 0;
             return PointMultiplier * RoundUpScore(Vars.ScoreKill + bonus, 5);
         }
+
+        // ------------------------------------------------------------------
+        // Last stand points: player_reduce_points() and the "reviver" event
+        // ------------------------------------------------------------------
+
+        /// <summary>Going down costs 5% of your points, rounded up to the next 10.</summary>
+        public int PointsLostWhenDowned(int score) => RoundUpToTen((int)(score * (double)Vars.PenaltyDowned));
+
+        /// <summary>When a teammate bleeds out, everyone else loses 10%, rounded up to the next 10.</summary>
+        public int NoRevivePenalty(int score) => RoundUpToTen((int)(score * (double)Vars.PenaltyNoRevive));
+
+        /// <summary>Taken from the bled-out player when they respawn (0% in BO1).</summary>
+        public int DiedPenalty(int score) => RoundUpToTen((int)(score * (double)Vars.PenaltyDied));
+
+        /// <summary>The reviver earns the downed player's lost points (rounded to 5, times Double Points).</summary>
+        public int PointsForRevive(int pointsLost) => pointsLost <= 0 ? 0 : PointMultiplier * RoundUpScore(pointsLost, 5);
+
+        /// <summary>round_up_to_ten()</summary>
+        public static int RoundUpToTen(int score) => RoundUpScore(score, 10);
 
         /// <summary>round_up_score(): round up to the next multiple of value.</summary>
         public static int RoundUpScore(int score, int value)

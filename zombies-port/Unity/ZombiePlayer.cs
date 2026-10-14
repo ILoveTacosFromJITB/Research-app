@@ -16,13 +16,16 @@ namespace ZombiesPort
         public PlayerScore Score { get; private set; }
         public WeaponInventory Weapons { get; private set; }
 
-        // Set by the perk, revive and last-stand systems once they exist.
+        // Set by the perk, revive and last-stand systems.
         [NonSerialized] public bool IsDrinkingPerk;
         [NonSerialized] public bool IsReviving;
         [NonSerialized] public bool IsDowned;
+        [NonSerialized] public bool IsSpectating;      // bled out; back next round
+        [NonSerialized] public bool HasQuickRevive;     // set by the perk system once it exists
 
         public bool CanBuyWeapon =>
-            Score != null && MysteryBoxRules.CanBuyWeapon(IsDrinkingPerk, IsReviving, IsDowned, Weapons.Current);
+            Score != null && !IsSpectating &&
+            MysteryBoxRules.CanBuyWeapon(IsDrinkingPerk, IsReviving, IsDowned, Weapons.Current);
 
         void Awake()
         {

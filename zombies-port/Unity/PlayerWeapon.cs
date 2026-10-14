@@ -13,6 +13,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq; // Contains() on IReadOnlyList (Primaries)
 using UnityEngine;
 
 namespace ZombiesPort
@@ -54,6 +55,12 @@ namespace ZombiesPort
         static readonly HitDistanceComparer ByDistance = new HitDistanceComparer();
         float _baseFov;
         float _busyUntil, _nextKnife;
+
+        // Last stand bookkeeping (last_stand_pistol_swap / laststand_enable_player_weapons)
+        public const string DefaultPistol = "m1911_zm"; // level.laststandpistol
+        string _preDownWeapon, _downedPistol, _temporaryPistol;
+        int _reserveBeforeDown, _reserveGivenWhenDown;
+        bool _restoreReserve;
         readonly HashSet<string> _warnedFallback = new HashSet<string>();
 
         void Awake()
@@ -87,7 +94,8 @@ namespace ZombiesPort
 
             Current.Tick(now);
 
-            bool canAct = !_player.IsDowned && !_player.IsDrinkingPerk;
+            // Downed players can still shoot their pistol. Reviving, drinking or spectating can't.
+            bool canAct = !_player.IsSpectating && !_player.IsDrinkingPerk && !_player.IsReviving;
 
             // Aim: not while reloading, swapping or knifing (as in CoD).
             IsAiming = canAct && input.AimHeld && !Current.IsReloading && !IsBusy;
@@ -97,8 +105,9 @@ namespace ZombiesPort
 
             if (!canAct) return;
 
-            if (input.KnifePressed && now >= _nextKnife) { Knife(now); return; }
-            if (input.SwapPressed && !IsBusy) { SwapToNext(now); return; }
+            bool downed = _player.IsDowned;
+            if (input.KnifePressed && now >= _nextKnife && !downed) { Knife(now); return; }
+            if (input.SwapPressed && !IsBusy && !downed) { SwapToNext(now); return; }
             if (input.ReloadPressed && !IsBusy && Current.StartReload(now)) OnReloadStarted();
 
             if (IsBusy) return;
@@ -222,6 +231,69 @@ namespace ZombiesPort
             input.CancelAim();
             _busyUntil = now + swapSeconds;
             // Update() notices the inventory change and equips it.
+        }
+
+        // ---------------- Last stand ----------------
+
+        /// <summary>
+        /// laststand_give_pistol() / last_stand_pistol_swap(): switch to the best pistol the
+        /// player owns, or hand over an M1911 with two spare magazines.
+        /// </summary>
+        public void EnterLastStand(bool solo)
+        {
+            var inv = _player.Weapons;
+            _preDownWeapon = inv.Current;
+            input?.CancelAim();
+            if (Current != null) Current.CancelReload();
+
+            _downedPistol = TeamLifeRules.BestPistol(inv.Primaries,
+                id => { var s = GetState(id); return s.Clip + s.Reserve > 0; }, solo, DefaultPistol);
+
+            _temporaryPistol = null;
+            _restoreReserve = false;
+            if (!inv.Primaries.Contains(_downedPistol))
+            {
+                inv.AddTemporary(_downedPistol); // Past the slot limit; taken back on revive.
+                _temporaryPistol = _downedPistol;
+            }
+
+            var state = GetState(_downedPistol);
+            if (_downedPistol == DefaultPistol)
+            {
+                if (_temporaryPistol != null) state.RefillToStart();
+                else { _reserveBeforeDown = state.Reserve; _restoreReserve = true; }
+                // SetWeaponAmmoStock( laststandpistol, doubleclip )
+                _reserveGivenWhenDown = state.Stats.MagazineSize * 2;
+                state.SetReserve(_reserveGivenWhenDown);
+            }
+            inv.SwitchTo(_downedPistol);
+        }
+
+        /// <summary>
+        /// Revived: give back what was in hand. A temporary M1911 is taken away. If the player
+        /// already owned it, the spare ammo they fired while downed comes out of what they had before.
+        /// </summary>
+        public void ExitLastStand()
+        {
+            var inv = _player.Weapons;
+            if (_downedPistol != null && _restoreReserve)
+            {
+                var state = GetState(_downedPistol);
+                int usedFromReserve = Mathf.Max(0, _reserveGivenWhenDown - state.Reserve);
+                state.SetReserve(Mathf.Max(0, _reserveBeforeDown - usedFromReserve));
+            }
+            if (_temporaryPistol != null) inv.Remove(_temporaryPistol);
+            if (_preDownWeapon != null && inv.Primaries.Contains(_preDownWeapon)) inv.SwitchTo(_preDownWeapon);
+            _downedPistol = _temporaryPistol = _preDownWeapon = null;
+        }
+
+        /// <summary>Bled out: respawn with only the M1911 and starting ammo.</summary>
+        public void ResetLoadout()
+        {
+            _states.Clear();
+            _player.Weapons.ResetTo(DefaultPistol);
+            _downedPistol = _temporaryPistol = _preDownWeapon = null;
+            Current = null; // Update() equips the pistol.
         }
 
         void OnWeaponGiven(string id, bool refill)
