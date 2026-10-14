@@ -10,6 +10,7 @@ import com.resellcomps.core.CompsReport
 import com.resellcomps.core.EbayBrowseApi
 import com.resellcomps.core.FreeCompsFinder
 import com.resellcomps.core.FreeIdentification
+import com.resellcomps.core.FreeVisionAi
 import com.resellcomps.core.GeminiService
 import com.resellcomps.core.GoogleVision
 import com.resellcomps.core.ItemIdentification
@@ -138,7 +139,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _screen.value = Screen.Busy("Identifying the item…")
             runCatching {
-                if (settings.mode == Mode.FREE && settings.geminiKey.isNotBlank()) {
+                if (settings.mode == Mode.FREE && settings.freeAiKey.isNotBlank()) {
+                    // Free AI (Groq or OpenRouter, detected from the key).
+                    withContext(Dispatchers.IO) {
+                        FreeVisionAi(settings.freeAiKey).identify(photos, hint)
+                            .copy(visualMatches = lens(photos).first?.matches.orEmpty())
+                    }
+                } else if (settings.mode == Mode.FREE && settings.geminiKey.isNotBlank()) {
                     // Free AI naming first; Lens matches ride along if a Vision key is set.
                     withContext(Dispatchers.IO) {
                         GeminiService(settings.geminiKey).identify(photos, hint)

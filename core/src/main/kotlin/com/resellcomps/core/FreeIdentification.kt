@@ -9,8 +9,8 @@ package com.resellcomps.core
 object FreeIdentification {
 
     const val BASIC_WARNING =
-        "Basic tag reading only — the app read the text but didn't recognize the item. Add a free Gemini " +
-            "key in Settings so it actually identifies what's in the photo."
+        "Basic tag reading only — the app read the text but didn't recognize the item. Add a free AI key " +
+            "(Groq or OpenRouter) in Settings so it actually identifies what's in the photo."
 
     /** A line of text read from the photo; [height] is its on-screen size (bigger usually = brand/name). */
     data class TextLine(val text: String, val height: Int)

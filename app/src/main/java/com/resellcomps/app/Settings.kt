@@ -25,6 +25,11 @@ class Settings(context: Context) {
         get() = str("ebay_client_secret")
         set(v) = put("ebay_client_secret", v)
 
+    /** Free AI naming with no Google: a Groq (gsk_…) or OpenRouter (sk-or-…) key. */
+    var freeAiKey: String
+        get() = str("free_ai_key")
+        set(v) = put("free_ai_key", v)
+
     /** Free AI naming: Gemini API key from Google AI Studio. */
     var geminiKey: String
         get() = str("gemini_key")

@@ -160,6 +160,7 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
     var readSold by remember { mutableStateOf(st.readSoldPage) }
     var visionKey by remember { mutableStateOf(st.googleVisionKey) }
     var geminiKey by remember { mutableStateOf(st.geminiKey) }
+    var freeAiKey by remember { mutableStateOf(st.freeAiKey) }
     var anthropic by remember { mutableStateOf(st.anthropicKey) }
     var serp by remember { mutableStateOf(st.serpApiKey) }
     var model by remember { mutableStateOf(st.model) }
@@ -185,7 +186,22 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
         HorizontalDivider()
         if (mode == Mode.FREE) {
             Text("Free mode", style = MaterialTheme.typography.titleMedium)
-            Text("Identify with Gemini (free, recommended)", style = MaterialTheme.typography.bodyLarge)
+            Text("Free AI identification (recommended)", style = MaterialTheme.typography.bodyLarge)
+            Text(
+                "Recognizes what's in your photos and writes the search for you. Paste ONE free key, no card needed:\n" +
+                    "• Groq (about 1,000 scans/day): console.groq.com → API Keys → Create API Key\n" +
+                    "• OpenRouter (about 50 scans/day): openrouter.ai → Keys → Create Key\n" +
+                    "The app recognizes which one it is.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+            OutlinedTextField(
+                value = freeAiKey, onValueChange = { freeAiKey = it },
+                label = { Text("Groq or OpenRouter key") }, singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            HorizontalDivider()
+            Text("Gemini (Google, optional)", style = MaterialTheme.typography.bodyLarge)
             Text(
                 "Recognizes what's in your photos and writes the search for you. Free key, no card: " +
                     "aistudio.google.com → Get API key → Create API key. The free tier has daily limits, and " +
@@ -290,6 +306,7 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
                 st.readSoldPage = readSold
                 st.googleVisionKey = visionKey
                 st.geminiKey = geminiKey
+                st.freeAiKey = freeAiKey
                 st.anthropicKey = anthropic
                 st.serpApiKey = serp
                 st.model = model
