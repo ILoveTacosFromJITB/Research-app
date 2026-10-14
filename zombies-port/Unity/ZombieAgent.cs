@@ -371,6 +371,13 @@ namespace ZombiesPort
         {
             if (!IsAlive) return;
 
+            // check_for_instakill(): during Insta-Kill any player hit kills (normal kill points).
+            if (attacker != null && _director.State.InstaKill)
+            {
+                Kill(attacker, zone, melee);
+                return;
+            }
+
             Health -= amount;
             if (Health <= 0)
             {

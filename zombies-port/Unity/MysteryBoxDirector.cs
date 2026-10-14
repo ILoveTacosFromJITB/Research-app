@@ -34,7 +34,10 @@ namespace ZombiesPort
         [SerializeField] int seed;
 
         public MysteryBoxRules Rules { get; private set; }
-        public int Cost => cost;
+        /// <summary>950, or 10 during a Fire Sale (toggle_fire_sale_on).</summary>
+        public int Cost => FireSaleActive ? PowerUpInfo.FireSaleBoxCost : cost;
+        public bool FireSaleActive { get; private set; }
+        public int ChestMoves => Rules != null ? Rules.ChestMoves : 0;
         public bool IsMoving { get; private set; }
         public bool CanMove => locations.Count > 1;
         public bool Intermission => GameBootstrap.Instance != null && GameBootstrap.Instance.State.Intermission;
@@ -46,6 +49,7 @@ namespace ZombiesPort
         public event Action<MysteryBox> BoxMoved;
 
         int[] _order;
+        readonly List<MysteryBox> _fireSaleBoxes = new List<MysteryBox>();
         int _index;
         readonly Dictionary<string, GameObject> _displayPool = new Dictionary<string, GameObject>();
         GameObject _teddy;
@@ -150,6 +154,46 @@ namespace ZombiesPort
             });
         }
 
+        // ---- Fire Sale (toggle_fire_sale_on) ----
+
+        /// <summary>Every box location appears and the box costs 10 for 30 seconds.</summary>
+        public void StartFireSale()
+        {
+            if (FireSaleActive) return;
+            FireSaleActive = true;
+            foreach (var box in locations)
+            {
+                if (box == null || box == ActiveBox || !box.IsHidden || _fireSaleBoxes.Contains(box)) continue;
+                box.SetPresent(true);   // show_chest(), hide_rubble()
+                _fireSaleBoxes.Add(box);
+            }
+        }
+
+        /// <summary>The sale is over: the extra boxes go once nobody is using them.</summary>
+        public void EndFireSale()
+        {
+            if (!FireSaleActive) return;
+            FireSaleActive = false;
+            StartCoroutine(HideFireSaleBoxes());
+        }
+
+        IEnumerator HideFireSaleBoxes()
+        {
+            var wait = new WaitForSeconds(0.5f);
+            while (_fireSaleBoxes.Count > 0 && !FireSaleActive)
+            {
+                for (int i = _fireSaleBoxes.Count - 1; i >= 0; i--)
+                {
+                    var box = _fireSaleBoxes[i];
+                    if (box == ActiveBox) { _fireSaleBoxes.RemoveAt(i); continue; } // The real box landed here.
+                    if (!box.IsIdle) continue;                                     // Still spinning or offering.
+                    box.SetPresent(false);
+                    _fireSaleBoxes.RemoveAt(i);
+                }
+                yield return wait;
+            }
+        }
+
         // ---- Called by MysteryBox ----
 
         internal void NotifyOpened(MysteryBox box) => BoxOpened?.Invoke(box);
@@ -167,7 +211,9 @@ namespace ZombiesPort
         {
             yield return new WaitForSeconds(MysteryBoxRules.BoxReappearSeconds);
             _index = Rules.NextLocation(ref _order, _index);
-            ActiveBox.SetPresent(true);
+            // During a Fire Sale the new spot may already be showing as a sale box: keep it as is.
+            bool wasSaleBox = _fireSaleBoxes.Remove(ActiveBox);
+            if (!wasSaleBox || ActiveBox.IsHidden) ActiveBox.SetPresent(true);
             IsMoving = false;
             BoxMoved?.Invoke(ActiveBox);
         }

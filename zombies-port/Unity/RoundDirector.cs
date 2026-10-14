@@ -39,6 +39,8 @@ namespace ZombiesPort
 
         public ZombieGameState State => GameBootstrap.Instance.State;
         public int AliveCount => _alive.Count;
+        /// <summary>Zombies currently alive (the Nuke works through these).</summary>
+        public IReadOnlyList<ZombieAgent> Alive => _alive;
         public bool IsBetweenRounds { get; private set; } = true;
         public bool IsHalted { get; private set; }
 

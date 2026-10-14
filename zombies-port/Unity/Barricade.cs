@@ -128,6 +128,12 @@ namespace ZombiesPort
             if (State.Tear(i) && audioSource != null && tearSound != null) audioSource.PlayOneShot(tearSound);
         }
 
+        /// <summary>The Carpenter power-up: every torn board goes back up (no rebuild points).</summary>
+        public void RepairAll()
+        {
+            while (State.RepairRandom() >= 0) { }
+        }
+
         // ---------------- Player side: hold to rebuild ----------------
 
         void Update()

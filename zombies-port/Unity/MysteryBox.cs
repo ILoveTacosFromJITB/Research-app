@@ -53,6 +53,10 @@ namespace ZombiesPort
         State _state = State.Hidden;
         ZombiePlayer _user;          // self.chest_user
         int _paid;                   // user_cost, refunded on a teddy bear
+        bool _openedByFireSale;      // self._box_opened_by_fire_sale: no teddy, doesn't count as a pull
+
+        public bool IsIdle => _state == State.Idle;
+        public bool IsHidden => _state == State.Hidden;
         string _offered;             // self.chest_origin.weapon_string
         bool _grabbed;
         GameObject _shown;
@@ -89,7 +93,7 @@ namespace ZombiesPort
             switch (_state)
             {
                 case State.Idle:
-                    if (_director.IsMoving) return InteractPrompt.Hidden;
+                    if (_director.IsMoving && !_director.FireSaleActive) return InteractPrompt.Hidden;
                     return new InteractPrompt
                     {
                         Visible = true,
@@ -112,7 +116,7 @@ namespace ZombiesPort
         {
             if (player == null || !player.CanBuyWeapon) return InteractResult.Unavailable;
 
-            if (_state == State.Idle && !_director.IsMoving)
+            if (_state == State.Idle && (!_director.IsMoving || _director.FireSaleActive))
             {
                 // treasure_chest_think(): `user.score >= self.zombie_cost`, otherwise the "no_money" line.
                 if (!player.Score.TrySpend(_director.Cost, _director.Intermission))
@@ -120,6 +124,7 @@ namespace ZombiesPort
 
                 _user = player;
                 _paid = _director.Cost;
+                _openedByFireSale = _director.FireSaleActive;
                 StartCoroutine(OpenRoutine());
                 return InteractResult.Done;
             }
@@ -166,7 +171,8 @@ namespace ZombiesPort
                 yield break;
             }
 
-            if (_director.Rules.RollTeddyBear(_director.CanMove))
+            // No teddy bear during a Fire Sale (treasure_chest_weapon_spawn checks fire_sale_on).
+            if (_director.Rules.RollTeddyBear(_director.CanMove && !_openedByFireSale && !_director.FireSaleActive))
             {
                 yield return LeaveRoutine();
                 yield break;
@@ -197,7 +203,7 @@ namespace ZombiesPort
             if (_grabbed && _user != null)
                 _user.Weapons.Give(weapon); // treasure_chest_give_weapon()
 
-            _director.Rules.RecordPull();    // level.chest_accessed += 1
+            if (!_openedByFireSale) _director.Rules.RecordPull(); // level.chest_accessed += 1 (not for Fire Sale pulls)
             _offered = null;
             Show(null);
         }

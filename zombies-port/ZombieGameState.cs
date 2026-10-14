@@ -163,6 +163,9 @@ namespace ZombiesPort
         /// <summary>level.solo_lives_given: solo Quick Revive can only be bought 3 times per game.</summary>
         public SoloQuickReviveTracker SoloQuickRevive { get; } = new SoloQuickReviveTracker();
 
+        /// <summary>level.zombie_vars["zombie_insta_kill"]: any player hit kills (check_for_instakill).</summary>
+        public bool InstaKill { get; set; }
+
         /// <summary>Double Points sets this to 2 (zombie_point_scalar).</summary>
         public int PointMultiplier { get; set; } = 1;
 
@@ -329,6 +332,9 @@ namespace ZombiesPort
 
         /// <summary>The reviver earns the downed player's lost points (rounded to 5, times Double Points).</summary>
         public int PointsForRevive(int pointsLost) => pointsLost <= 0 ? 0 : PointMultiplier * RoundUpScore(pointsLost, 5);
+
+        /// <summary>"nuke_powerup" (400) and "carpenter_powerup" (200): rounded to 5, times Double Points.</summary>
+        public int PointsForPowerUp(int raw) => PointMultiplier * RoundUpScore(raw, 5);
 
         /// <summary>round_up_to_ten()</summary>
         public static int RoundUpToTen(int score) => RoundUpScore(score, 10);

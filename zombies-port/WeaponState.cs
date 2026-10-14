@@ -121,12 +121,18 @@ namespace ZombiesPort
             IsReloading = false;
         }
 
-        /// <summary>The Max Ammo power-up.</summary>
+        /// <summary>Fills magazine and reserve completely.</summary>
         public void RefillToMax()
         {
             Clip = Stats.MagazineSize;
             Reserve = Stats.MaxReserve;
         }
+
+        /// <summary>
+        /// The Max Ammo power-up: GiveMaxAmmo() fills the spare ammo to the maximum and leaves
+        /// what's in the magazine alone.
+        /// </summary>
+        public void FillReserveToMax() => Reserve = Math.Max(Reserve, Stats.MaxReserve);
 
         /// <summary>SetWeaponAmmoStock(): set the spare ammo directly (last stand uses this).</summary>
         public void SetReserve(int reserve) => Reserve = Math.Max(0, reserve);
