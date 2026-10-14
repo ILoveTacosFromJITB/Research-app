@@ -14,18 +14,20 @@ class FreeVisionAiTest {
         assertNull(FreeVisionAi.detect("AIzaSy-google"))
     }
 
-    @Test fun picksGroqVisionModelsBestFirst() {
+    @Test fun ranksLikelyGroqImageModelsFirstAndDropsTextOnlyOnes() {
         val body = """{"data":[
-          {"id":"llama-3.3-70b-versatile"},
-          {"id":"meta-llama/llama-4-scout-17b-16e-instruct"},
-          {"id":"whisper-large-v3"},
-          {"id":"meta-llama/llama-4-maverick-17b-128e-instruct"}
+          {"id":"llama-3.3-70b-versatile","active":true},
+          {"id":"openai/gpt-oss-120b","active":true},
+          {"id":"whisper-large-v3","active":true},
+          {"id":"qwen/qwen3.6-27b","active":true},
+          {"id":"qwen/qwen3.8-27b","active":true},
+          {"id":"meta-llama/llama-guard-4-12b","active":true},
+          {"id":"meta-llama/llama-4-maverick-17b-128e-instruct","active":false}
         ]}"""
         assertEquals(
-            listOf("meta-llama/llama-4-maverick-17b-128e-instruct", "meta-llama/llama-4-scout-17b-16e-instruct"),
-            FreeVisionAi.pickGroqModels(body),
+            listOf("qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "llama-3.3-70b-versatile"),
+            FreeVisionAi.rankGroqModels(body),
         )
-        assertEquals(listOf(FreeVisionAi.GROQ_FALLBACK), FreeVisionAi.pickGroqModels("""{"data":[{"id":"llama-3.3-70b-versatile"}]}"""))
     }
 
     @Test fun parsesAnswerEvenWhenWrappedInCodeFences() {

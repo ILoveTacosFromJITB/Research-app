@@ -38,19 +38,27 @@ class FreeVisionAi(
         ?: throw IOException("That key isn't a Groq key (starts with gsk_) or an OpenRouter key (starts with sk-or-).")
 
     fun identify(photos: List<ByteArray>, hint: String? = null): ItemIdentification {
-        val models = when (provider) {
-            Provider.GROQ -> groqModels ?: pickGroqModels(get("${provider.baseUrl}/models")).also { groqModels = it }
+        val candidates = when (provider) {
+            Provider.GROQ -> listOfNotNull(workingGroqModel) +
+                rankGroqModels(get("${provider.baseUrl}/models")).filter { it != workingGroqModel }
             Provider.OPENROUTER -> listOf(OPENROUTER_FREE)
         }
-        if (models.isEmpty()) throw IOException("No free vision model is available on your ${provider.label} account right now.")
+        if (candidates.isEmpty()) throw IOException("No AI model on your ${provider.label} account can read photos right now.")
         var last: IOException? = null
-        for (model in models.take(2)) {
+        // Groq retires models often and doesn't say which ones read images, so try likely ones in
+        // order and remember the first that accepts the photo.
+        for (model in candidates.take(MAX_TRIES)) {
             try {
-                return try {
+                val result = try {
                     chat(model, photos, hint)
                 } catch (e: java.io.InterruptedIOException) {
                     chat(model, photos, hint) // one retry on a slow reply
                 }
+                if (provider == Provider.GROQ) workingGroqModel = model
+                return result
+            } catch (e: ModelUnusable) {
+                if (model == workingGroqModel) workingGroqModel = null
+                last = e
             } catch (e: LimitException) {
                 last = e
             }
@@ -59,6 +67,9 @@ class FreeVisionAi(
     }
 
     private class LimitException(msg: String) : IOException(msg)
+
+    /** The model is gone, or it can't take images: try the next one. */
+    private class ModelUnusable(msg: String) : IOException(msg)
 
     private fun chat(model: String, photos: List<ByteArray>, hint: String?): ItemIdentification {
         val body = buildJsonObject {
@@ -107,6 +118,10 @@ class FreeVisionAi(
                     "${provider.label}'s free limit is used up for now. Try again in a minute, or tomorrow for the daily limit."
                 )
                 resp.code == 402 -> throw IOException("${provider.label} says this account needs credit for that request.")
+                resp.code == 400 || resp.code == 404 || resp.code == 422 -> throw ModelUnusable(
+                    "${provider.label} has no model that can read photos for this account right now (${errorMessage(text)}). " +
+                        "An OpenRouter key (openrouter.ai, free) works as a backup."
+                )
                 else -> throw IOException("${provider.label} error (HTTP ${resp.code}): ${errorMessage(text)}")
             }
         }
@@ -118,10 +133,10 @@ class FreeVisionAi(
         /** OpenRouter's router that picks a free model supporting the request (images included). */
         const val OPENROUTER_FREE = "openrouter/free"
 
-        /** Used if Groq's model list can't be read; Groq's Llama 4 Scout vision model. */
-        const val GROQ_FALLBACK = "meta-llama/llama-4-scout-17b-16e-instruct"
+        /** The Groq model that last accepted a photo, tried first next time. */
+        @Volatile private var workingGroqModel: String? = null
 
-        @Volatile private var groqModels: List<String>? = null
+        private const val MAX_TRIES = 4
 
         private val JSON_INSTRUCTIONS = """
             Reply with only a JSON object, no other text, with these keys:
@@ -135,18 +150,32 @@ class FreeVisionAi(
             else -> null
         }
 
-        /** Groq's vision-capable models from its model list, best first: Llama 4 Maverick, Scout, then other "vision" models. */
-        fun pickGroqModels(body: String): List<String> {
+        /** Model families on Groq that never read images (speech, safety, embeddings, text-only). */
+        private val NOT_VISION = listOf("whisper", "tts", "playai", "orpheus", "guard", "embed", "gpt-oss", "compound", "allam", "distil", "safeguard")
+
+        /**
+         * Groq's models, likeliest image readers first: names that say so (vision, -vl, Llama 4),
+         * then Qwen (the family reported to read images on Groq after Llama 4 was retired), then
+         * Gemma, then any other chat model. Known text-only families are left out.
+         */
+        fun rankGroqModels(body: String): List<String> {
             val ids = ((json.parseToJsonElement(body) as? JsonObject)?.get("data") as? JsonArray).orEmpty()
-                .mapNotNull { ((it as? JsonObject)?.get("id") as? JsonPrimitive)?.contentOrNull }
-            fun rank(id: String) = when {
-                "llama-4-maverick" in id -> 0
-                "llama-4-scout" in id -> 1
-                "vision" in id || "-vl" in id -> 2
-                else -> null
+                .mapNotNull { el ->
+                    val o = el as? JsonObject ?: return@mapNotNull null
+                    if ((o["active"] as? JsonPrimitive)?.contentOrNull == "false") return@mapNotNull null
+                    (o["id"] as? JsonPrimitive)?.contentOrNull
+                }
+                .filter { id -> NOT_VISION.none { it in id.lowercase() } }
+            fun rank(id: String): Int = id.lowercase().let { m ->
+                when {
+                    "vision" in m || "-vl" in m || "llama-4" in m -> 0
+                    "qwen" in m -> 1
+                    "gemma" in m || "pixtral" in m || "llava" in m -> 2
+                    else -> 3
+                }
             }
-            val picked = ids.mapNotNull { id -> rank(id)?.let { id to it } }.sortedBy { it.second }.map { it.first }
-            return picked.ifEmpty { listOf(GROQ_FALLBACK) }
+            // Newer versions first within a rank (e.g. qwen3.8 before qwen3.6).
+            return ids.sortedWith(compareBy<String> { rank(it) }.thenByDescending { it })
         }
 
         fun parseAnswer(body: String): ItemIdentification {
