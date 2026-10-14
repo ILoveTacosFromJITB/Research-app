@@ -143,12 +143,12 @@ fun IdentifiedScreen(
         if (!textMode) {
 
             if (photos.size == 1) {
-                TextButton(onClick = { GoogleLens.open(context, photos.first()) }) {
+                TextButton(onClick = { GoogleLens.open(context, photos.first(), q) }) {
                     Text("Wrong item? Open in Google Lens")
                 }
             } else {
                 // Lens searches one image at a time, so let the user choose which photo to send.
-                Text("Wrong item? Tap a photo to search it with Google Lens", style = MaterialTheme.typography.labelLarge)
+                Text("Wrong item? Tap a photo to search it with Google Lens (your search words are copied to paste in)", style = MaterialTheme.typography.labelLarge)
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     itemsIndexed(photos) { i, photo ->
                         val bitmap = remember(photo) { BitmapFactory.decodeByteArray(photo, 0, photo.size)?.asImageBitmap() }
@@ -158,7 +158,7 @@ fun IdentifiedScreen(
                                 contentDescription = "Search photo ${i + 1} with Google Lens",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.size(84.dp).clip(MaterialTheme.shapes.medium)
-                                    .clickable { GoogleLens.open(context, photo) },
+                                    .clickable { GoogleLens.open(context, photo, q) },
                             )
                         }
                     }
