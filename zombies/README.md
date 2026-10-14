@@ -9,6 +9,15 @@ Three.js from cdnjs.
 
 ## What's in it
 
+- Graphics built in code to look like the original: realistic materials with surface relief,
+  bloom, a filmic color grade with grain and vignette, and shadows on High.
+  - Zombies are jointed bodies in soldier tunics, shirts and vests, or dark coats, with glowing eyes.
+  - Guns are modelled from real silhouettes (M1911, M14, Olympia, MP40, Ray Gun and more), held in
+    first-person hands.
+  - The map has coffered ceilings, brass chandeliers, wall lamps, wood trim, theater balconies,
+    velvet seats, floating dust and light beams.
+  - Options → Graphics: Low (fastest), Medium (the phone default) or High.
+
 - Loading screen, then a main menu (Solo, Options, Controls, About) over a fly-through of the map.
 - **Kino der Toten**, laid out after the original: the lobby where you spawn, the dressing room and the
   alley on either side, and the theater and stage in the middle. Doors cost 750 or 1000 points. The
