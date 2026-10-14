@@ -1,0 +1,98 @@
+// WeaponInventory.cs
+//
+// The player's weapon slots, ported from treasure_chest_give_weapon() and weapon_give()
+// in maps/_zombiemode_weapons.gsc. Plain C# with no engine types, so it can be unit-tested
+// and shared by the Mystery Box, wall buys and Pack-a-Punch later.
+
+using System;
+using System.Collections.Generic;
+
+namespace ZombiesPort
+{
+    public class WeaponInventory
+    {
+        // Weapons that never take a primary slot. In GSC these are the is_offhand_weapon()
+        // weapons. The cymbal monkey goes into the tactical slot (player_give_cymbal_monkey).
+        static readonly HashSet<string> Tacticals = new HashSet<string>
+        {
+            "zombie_cymbal_monkey", "zombie_black_hole_bomb", "zombie_nesting_dolls"
+        };
+
+        readonly List<string> _primaries = new List<string>();
+        public IReadOnlyList<string> Primaries => _primaries;
+        public string Current { get; private set; }
+        public string Tactical { get; private set; }
+
+        /// <summary>Mule Kick (specialty_additionalprimaryweapon) raises the limit from 2 to 3.</summary>
+        public bool HasMuleKick { get; set; }
+        public int WeaponLimit => HasMuleKick ? 3 : 2;
+
+        /// <summary>Raised when a weapon is added or refilled: (weaponId, wasRefill).</summary>
+        public event Action<string, bool> OnWeaponGiven;
+        /// <summary>Raised when the held weapon is swapped out to make room.</summary>
+        public event Action<string> OnWeaponTaken;
+
+        public WeaponInventory(string startingPistol = "m1911_zm")
+        {
+            if (!string.IsNullOrEmpty(startingPistol))
+            {
+                _primaries.Add(startingPistol);
+                Current = startingPistol;
+            }
+        }
+
+        /// <summary>
+        /// has_weapon_or_upgrade(). Pass the upgrade name from the weapon table, because a few
+        /// don't follow the pattern (m16_zm upgrades to m16_gl_upgraded_zm). Without one, the
+        /// usual "_upgraded_zm" suffix is assumed.
+        /// </summary>
+        public bool HasWeaponOrUpgrade(string weapon, string upgradeId = null)
+        {
+            string upgraded = upgradeId
+                ?? (weapon.EndsWith("_zm") ? weapon.Substring(0, weapon.Length - 3) + "_upgraded_zm" : null);
+            foreach (var w in _primaries)
+                if (w == weapon || w == upgraded) return true;
+            return Tactical == weapon;
+        }
+
+        public void SwitchTo(string weapon)
+        {
+            if (_primaries.Contains(weapon)) Current = weapon;
+        }
+
+        /// <summary>
+        /// treasure_chest_give_weapon():
+        ///  - Already owned: refill ammo (GiveStartAmmo) and switch to it.
+        ///  - Slots full: the weapon in the player's hands is taken away first.
+        ///  - Otherwise: give it and switch to it.
+        /// </summary>
+        public void Give(string weapon)
+        {
+            if (Tacticals.Contains(weapon))
+            {
+                bool refill = Tactical == weapon;
+                Tactical = weapon;
+                OnWeaponGiven?.Invoke(weapon, refill);
+                return;
+            }
+
+            if (_primaries.Contains(weapon))
+            {
+                Current = weapon;
+                OnWeaponGiven?.Invoke(weapon, true);
+                return;
+            }
+
+            if (_primaries.Count >= WeaponLimit && Current != null)
+            {
+                string dropped = Current;
+                _primaries.Remove(dropped);
+                OnWeaponTaken?.Invoke(dropped);
+            }
+
+            _primaries.Add(weapon);
+            Current = weapon;
+            OnWeaponGiven?.Invoke(weapon, false);
+        }
+    }
+}
