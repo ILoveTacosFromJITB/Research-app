@@ -91,6 +91,11 @@ class GeminiService(
             val text = resp.body?.string().orEmpty()
             when {
                 resp.isSuccessful -> return text
+                resp.code == 402 -> throw IOException(
+                    "This Gemini key is on Google's paid plan and its prepaid credit is used up, so it isn't using the free tier. " +
+                        "Fix: aistudio.google.com → Get API key → Create API key → \"Create API key in new project\" " +
+                        "(a project with no billing), check it says Free, then paste it in Settings."
+                )
                 resp.code == 429 -> throw QuotaException("Gemini's free limit is used up for now. Try again in a minute, or tomorrow for the daily limit.")
                 resp.code == 400 && text.contains("API_KEY_INVALID") -> throw IOException("Gemini rejected your API key. Check it in Settings.")
                 resp.code == 403 -> throw IOException("Gemini refused the key (HTTP 403): ${errorMessage(text)}")
