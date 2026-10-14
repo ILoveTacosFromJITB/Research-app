@@ -686,7 +686,11 @@ function buildMaterials() {
   M.gunMetal = lam({ color: 0x55575c, metalness: .55, roughness: .42 }); M.gunMetal.envMapIntensity = .45; M.gunBlack = lam({ color: 0x1b1c1f, metalness: .3, roughness: .55 });
   M.sleeve = surf(TX.sleeve, 2, .95); M.skinVm = lam({ color: 0x8a6650, roughness: .65 }); M.glove = lam({ color: 0x2a221c, roughness: .7 });
   M.gunWood = surf(TX.gunwood, 1.5, .45); M.gunGrip = lam({ color: 0x1a1918, roughness: .7 });
-  M.pap = lam({ color: 0x5a2aa0, emissive: 0x3a1080, metalness: .7, roughness: .3 }); M.pap2 = lam({ color: 0x2a70c0, emissive: 0x102a70, metalness: .6, roughness: .35 });
+  { const c = cnv(128, 128), g = c.getContext('2d'); g.fillStyle = '#0c0c12'; g.fillRect(0, 0, 128, 128);
+    g.lineWidth = 2; for (let i = 0; i < 26; i++) { g.strokeStyle = i % 3 ? '#4f6cff' : '#b06cff'; g.beginPath(); let x = rng() * 128, y = rng() * 128; g.moveTo(x, y);
+      for (let k = 0; k < 6; k++) { if (rng() < .5) x += (rng() < .5 ? -1 : 1) * (6 + rng() * 14); else y += (rng() < .5 ? -1 : 1) * (6 + rng() * 14); g.lineTo(x, y); } g.stroke(); g.fillStyle = g.strokeStyle; g.fillRect(x - 2, y - 2, 4, 4); }
+    const camo = texOf(c, 10, 10), glow = texOf(c, 10, 10);
+    M.pap = lam({ map: camo, emissive: 0x7a5cff, emissiveMap: glow, metalness: .6, roughness: .35 }); M.pap2 = lam({ map: camo, emissive: 0x7a5cff, emissiveMap: glow, metalness: .5, roughness: .4, color: 0x9090a0 }); }
   M.rayBody = lam({ color: 0x8c9a7a, metalness: .7, roughness: .35 }); M.rayRed = lam({ color: 0xb01a1a, emissive: 0x300000, metalness: .4, roughness: .4 }); M.rayGlow = glowMat(.6, 2.4, .8);
   M.flash = new THREE.SpriteMaterial({ map: texOf(textCanvas('', 64, 64)), color: 0xffd080, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
   { const c = cnv(64, 64), g = c.getContext('2d'); const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.3, 'rgba(255,200,120,.8)'); gr.addColorStop(1, 'rgba(255,120,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); M.flash.map = texOf(c); M.glowTex = M.flash.map; }
@@ -1607,14 +1611,15 @@ function buildZombieAssets() {
   ZG.eye = new THREE.SphereGeometry(.017, 8, 6);
   const limb = (r0, r1, len) => { const g = new THREE.CylinderGeometry(r1, r0, len, 9, 1); g.translate(0, -len / 2, 0); return g; };
   ZG.upperArm = limb(.052, .042, .3); ZG.forearm = limb(.042, .033, .27); ZG.thigh = limb(.078, .06, .46); ZG.shin = limb(.056, .043, .44);
+  ZG.thighBreech = limb(.1, .06, .46); ZG.shinBoot = limb(.062, .052, .44);
   ZG.hand = new THREE.BoxGeometry(.065, .1, .03); ZG.hand.translate(0, -.05, 0);
   ZG.boot = new THREE.BoxGeometry(.1, .08, .24); ZG.boot.translate(0, -.04, .045);
   ZG.dogEye = ZG.eye;
 
   // skin: mottled grey-green with veins and rot
-  const skinCols = ['#7f8a6c', '#8e8875', '#6d7660', '#99907c'];
+  const skinCols = ['#6f716b', '#63665f', '#7a776d', '#5c605c'];
   ZM.skin = skinCols.map(col => { const c = cnv(128, 128), g = c.getContext('2d'); g.fillStyle = col; g.fillRect(0, 0, 128, 128);
-    for (let i = 0; i < 40; i++) { g.fillStyle = `rgba(${40 + rng() * 40 | 0},${50 + rng() * 30 | 0},${30 + rng() * 20 | 0},${rng() * .35})`; g.beginPath(); g.ellipse(rng() * 128, rng() * 128, 4 + rng() * 14, 3 + rng() * 10, rng() * 3, 0, 7); g.fill(); }
+    for (let i = 0; i < 46; i++) { g.fillStyle = `rgba(${45 + rng() * 40 | 0},${48 + rng() * 30 | 0},${48 + rng() * 25 | 0},${rng() * .4})`; g.beginPath(); g.ellipse(rng() * 128, rng() * 128, 4 + rng() * 14, 3 + rng() * 10, rng() * 3, 0, 7); g.fill(); }
     g.strokeStyle = 'rgba(70,30,60,.35)'; g.lineWidth = 1; for (let i = 0; i < 10; i++) { g.beginPath(); let x = rng() * 128, y = rng() * 128; g.moveTo(x, y); for (let k = 0; k < 5; k++) { x += R(-12, 12); y += R(4, 14); g.lineTo(x, y); } g.stroke(); }
     for (let i = 0; i < 3; i++) { g.fillStyle = 'rgba(90,10,10,.8)'; g.beginPath(); g.ellipse(rng() * 128, rng() * 128, R(3, 8), R(2, 6), 0, 0, 7); g.fill(); }
     return surf(c, 2, .65); });
@@ -1622,9 +1627,11 @@ function buildZombieAssets() {
   ZM.heads = skinCols.map((col, i) => { const c = cnv(256, 128), g = c.getContext('2d'); g.drawImage(ZM.skin[i].map.image, 0, 0, 256, 128);
     const hair = ['#1e1814', '#3a2c20', null, '#55504a'][i]; if (hair) { g.fillStyle = hair; g.fillRect(0, 0, 256, 30); for (let k = 0; k < 60; k++) g.fillRect(rng() * 256, 26 + rng() * 10, 3, 4); }
     const fx = 64;
-    g.fillStyle = 'rgba(25,12,10,.9)'; for (const dx of [-14, 14]) { g.beginPath(); g.ellipse(fx + dx, 56, 9, 6.5, 0, 0, 7); g.fill(); }          // sunken eye sockets
+    g.fillStyle = 'rgba(40,36,34,.55)'; g.beginPath(); g.ellipse(fx, 60, 30, 22, 0, 0, 7); g.fill();                                    // grey, sunken face
+    g.fillStyle = '#a49c88'; g.beginPath(); g.ellipse(fx + 18, 80, 10, 7, .4, 0, 7); g.fill(); g.beginPath(); g.ellipse(fx - 16, 82, 7, 5, -.3, 0, 7); g.fill(); // bone through the cheeks
+    g.fillStyle = 'rgba(12,6,6,.95)'; for (const dx of [-14, 14]) { g.beginPath(); g.ellipse(fx + dx, 56, 10, 7.5, 0, 0, 7); g.fill(); }          // deep eye sockets
     g.fillStyle = 'rgba(40,20,15,.6)'; g.beginPath(); g.moveTo(fx, 60); g.lineTo(fx - 4, 72); g.lineTo(fx + 4, 72); g.fill();               // nose cavity
-    g.fillStyle = '#1a0806'; g.fillRect(fx - 13, 79, 26, 8); g.fillStyle = '#cfc4a0'; for (let k = 0; k < 7; k++) g.fillRect(fx - 12 + k * 3.6, 79, 2.4, 3 + (k % 2) * 2);
+    g.fillStyle = '#140604'; g.fillRect(fx - 15, 78, 30, 10); g.fillStyle = '#d6cba8'; for (let k = 0; k < 8; k++) { g.fillRect(fx - 14 + k * 3.6, 77, 2.6, 5); g.fillRect(fx - 14 + k * 3.6, 84, 2.6, 4); } // lipless grin
     g.fillStyle = 'rgba(120,5,5,.85)'; g.fillRect(fx - 9, 87, 4, 14); g.fillRect(fx + 5, 87, 3, 9); g.beginPath(); g.ellipse(fx + 26, 70, 7, 5, .3, 0, 7); g.fill();
     g.fillStyle = 'rgba(0,0,0,.25)'; g.fillRect(fx - 22, 64, 6, 10); g.fillRect(fx + 16, 64, 6, 10);
     return surf(c, 1.5, .6); });
@@ -1633,20 +1640,33 @@ function buildZombieAssets() {
     for (let i = 0; i < 6; i++) { g.fillStyle = `rgba(${70 + rng() * 60 | 0},0,0,${.45 + rng() * .45})`; g.beginPath(); g.ellipse(rng() * 256, rng() * 256, R(5, 22), R(4, 16), rng() * 3, 0, 7); g.fill(); }
     for (let i = 0; i < 4; i++) { g.fillStyle = 'rgba(10,8,6,.85)'; g.beginPath(); g.ellipse(rng() * 256, R(40, 240), R(4, 12), R(2, 6), rng() * 3, 0, 7); g.fill(); } // tears
     return surf(c, 2.5, .95); };
+  const tunic = base => cloth(base, g => {
+    g.fillStyle = 'rgba(0,0,0,.4)'; g.fillRect(126, 14, 4, 190); g.fillStyle = '#8f9196'; for (let y = 36; y < 200; y += 30) { g.beginPath(); g.arc(134, y, 3.5, 0, 7); g.fill(); }
+    g.strokeStyle = 'rgba(0,0,0,.5)'; g.lineWidth = 3; g.strokeRect(80, 66, 34, 30); g.strokeRect(142, 66, 34, 30); g.strokeRect(78, 150, 38, 40); g.strokeRect(140, 150, 38, 40);
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, 0, 256, 14);                                                                       // collar
+    g.save(); g.translate(0, 0); g.beginPath(); g.moveTo(0, 20); g.lineTo(12, 20); g.lineTo(46, 205); g.lineTo(34, 205); g.fill(); g.beginPath(); g.moveTo(256, 20); g.lineTo(244, 20); g.lineTo(210, 205); g.lineTo(222, 205); g.fill(); g.restore(); // crossing at the back
+    g.fillStyle = '#b3ac98'; g.fillRect(0, 205, 256, 13); g.fillStyle = '#9a9ca0'; g.fillRect(118, 201, 20, 22); g.fillStyle = '#1e1c1a'; g.fillRect(96, 206, 16, 14); g.fillRect(144, 206, 16, 14); // belt, buckle, pouches
+  });
   ZM.outfits = [
+    { body: tunic('#212225'), sleeve: '#212225', pants: '#1e1f22', boot: '#0e0d0d', soldier: true, w: 4 },
+    { body: tunic('#34372f'), sleeve: '#34372f', pants: '#2c2e29', boot: '#0e0d0d', soldier: true, w: 3 },
     { body: cloth('#5a5c4c', g => { g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(126, 20, 4, 236); g.fillStyle = '#b8b09a'; for (let y = 40; y < 200; y += 32) g.fillRect(132, y, 6, 6);
         g.strokeStyle = 'rgba(0,0,0,.45)'; g.lineWidth = 3; g.strokeRect(80, 70, 36, 30); g.strokeRect(140, 70, 36, 30); g.strokeRect(80, 150, 40, 40); g.strokeRect(136, 150, 40, 40);
-        g.fillStyle = '#2a2018'; g.fillRect(0, 205, 256, 18); g.fillStyle = '#9a8a5a'; g.fillRect(118, 203, 20, 22); }), sleeve: '#5a5c4c', pants: '#4a4c3e', boot: '#1a1512' },
+        g.fillStyle = '#2a2018'; g.fillRect(0, 205, 256, 18); g.fillStyle = '#9a8a5a'; g.fillRect(118, 203, 20, 22); }), sleeve: '#5a5c4c', pants: '#4a4c3e', boot: '#1a1512', w: 1 },
     { body: cloth('#c9c1ad', g => { g.fillStyle = '#2c2420'; g.fillRect(0, 60, 100, 196); g.fillRect(156, 60, 100, 196); g.beginPath(); g.moveTo(100, 60); g.lineTo(128, 150); g.lineTo(156, 60); g.fill();
-        g.fillStyle = '#6a1418'; g.beginPath(); g.moveTo(122, 20); g.lineTo(134, 20); g.lineTo(138, 130); g.lineTo(128, 140); g.lineTo(118, 130); g.fill(); }), sleeve: '#c9c1ad', pants: '#2a2522', boot: '#120f0d' },
-    { body: cloth('#2e3138', g => { g.fillStyle = 'rgba(255,255,255,.08)'; g.beginPath(); g.moveTo(100, 0); g.lineTo(128, 120); g.lineTo(156, 0); g.fill(); g.fillStyle = '#8a8070'; for (let y = 120; y < 220; y += 30) g.fillRect(134, y, 6, 6); }), sleeve: '#2e3138', pants: '#24262b', boot: '#141210' },
+        g.fillStyle = '#6a1418'; g.beginPath(); g.moveTo(122, 20); g.lineTo(134, 20); g.lineTo(138, 130); g.lineTo(128, 140); g.lineTo(118, 130); g.fill(); }), sleeve: '#c9c1ad', pants: '#2a2522', boot: '#120f0d', w: 1 },
+    { body: cloth('#2e3138', g => { g.fillStyle = 'rgba(255,255,255,.08)'; g.beginPath(); g.moveTo(100, 0); g.lineTo(128, 120); g.lineTo(156, 0); g.fill(); g.fillStyle = '#8a8070'; for (let y = 120; y < 220; y += 30) g.fillRect(134, y, 6, 6); }), sleeve: '#2e3138', pants: '#24262b', boot: '#141210', w: 1 },
   ];
-  for (const o of ZM.outfits) { o.sleeveM = lam({ color: o.sleeve, roughness: .95 }); o.pantsM = lam({ color: o.pants, roughness: .95 }); o.bootM = lam({ color: o.boot, roughness: .5 }); }
-  ZM.eye = glowMat(2.2, 1.7, .3);
+  for (const o of ZM.outfits) { o.sleeveM = lam({ color: o.sleeve, roughness: .95 }); o.pantsM = lam({ color: o.pants, roughness: .95 }); o.bootM = lam({ color: o.boot, roughness: o.soldier ? .28 : .5, metalness: o.soldier ? .15 : 0 }); }
+  ZM.leather = lam({ color: 0xb0a994, roughness: .7 }); ZM.buckle = lam({ color: 0x9a9ca0, metalness: .8, roughness: .35 });
+  ZG.belt = new THREE.CylinderGeometry(.148, .15, .06, 18, 1, true); ZG.belt.scale(1.12, 1, .72);
+  ZG.strap = new THREE.BoxGeometry(.026, .5, .012);
+  ZM.eye = glowMat(2.6, 1.6, .25);
   ZM.dogEye = glowMat(2.4, .9, .2);
 }
 function makeZombieMesh() {
-  const g = new THREE.Group(), si = (Math.random() * ZM.skin.length) | 0, skin = ZM.skin[si], o = pick(ZM.outfits);
+  const g = new THREE.Group(), si = (Math.random() * ZM.skin.length) | 0, skin = ZM.skin[si];
+  let wr = Math.random() * ZM.outfits.reduce((a, o) => a + o.w, 0), o = ZM.outfits[0]; for (const c of ZM.outfits) { wr -= c.w; if (wr <= 0) { o = c; break; } }
   const meshes = [];
   const mesh = (geo, mat, parent, x = 0, y = 0, z = 0, part = 'limb') => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); parent.add(m); m.userData.part = part; meshes.push(m); if (SHADOWS) m.castShadow = true; return m; };
   const grp = (parent, x, y, z) => { const n = new THREE.Group(); n.position.set(x, y, z); parent.add(n); return n; };
@@ -1654,18 +1674,27 @@ function makeZombieMesh() {
   mesh(ZG.pelvis, o.pantsM, hips, 0, 0, 0, 'torso');
   const spine = grp(hips, 0, .04, 0);
   const torso = mesh(ZG.chest, o.body, spine, 0, 0, 0, 'torso');
+  if (o.soldier) {
+    const belt = new THREE.Mesh(ZG.belt, ZM.leather); belt.position.y = .03; spine.add(belt);
+    const buckle = new THREE.Mesh(new THREE.BoxGeometry(.05, .045, .012), ZM.buckle); buckle.position.set(0, .03, .108); spine.add(buckle);
+    for (const sx of [-1, 1]) {
+      const f = new THREE.Mesh(ZG.strap, ZM.leather); f.position.set(sx * .085, .28, .128); f.rotation.set(-.12, 0, sx * .06); spine.add(f);  // front braces
+      const b = new THREE.Mesh(ZG.strap, ZM.leather); b.position.set(sx * .05, .28, -.128); b.rotation.set(.12, 0, sx * .38); spine.add(b);  // crossing at the back
+    }
+  }
   const neck = grp(spine, 0, .53, .01); mesh(ZG.neck, skin, neck);
   const head = grp(neck, 0, .1, 0);
   const skull = mesh(ZG.skull, ZM.heads[si], head, 0, 0, 0, 'head'); skull.userData.head = true;
   const jawP = grp(head, 0, .03, .02); const jaw = mesh(ZG.jaw, skin, jawP, 0, 0, 0, 'head'); jaw.userData.head = true; jawP.rotation.x = rand(.15, .45);
-  for (const sx of [-1, 1]) { const e = new THREE.Mesh(ZG.eye, ZM.eye); e.position.set(sx * .038, .115, .1); head.add(e); const gl = glowSprite(0xffc23a, .09); gl.position.copy(e.position); gl.position.z += .02; head.add(gl); }
+  for (const sx of [-1, 1]) { const e = new THREE.Mesh(ZG.eye, ZM.eye); e.position.set(sx * .038, .115, .1); head.add(e); const gl = glowSprite(0xffb020, .13); gl.position.copy(e.position); gl.position.z += .02; head.add(gl); }
   const arm = sx => {
     const bare = Math.random() < .3; // torn sleeve
     const sh = grp(spine, sx * .2, .45, 0); mesh(ZG.upperArm, o.sleeveM, sh);
     const el = grp(sh, 0, -.3, 0); mesh(ZG.forearm, bare ? skin : o.sleeveM, el); mesh(ZG.hand, skin, el, 0, -.27, 0);
     return [sh, el];
   };
-  const leg = sx => { const hp = grp(hips, sx * .095, -.06, 0); mesh(ZG.thigh, o.pantsM, hp); const kn = grp(hp, 0, -.46, 0); mesh(ZG.shin, o.pantsM, kn); mesh(ZG.boot, o.bootM, kn, 0, -.44, 0); return [hp, kn]; };
+  const leg = sx => { const hp = grp(hips, sx * .095, -.06, 0); mesh(o.soldier ? ZG.thighBreech : ZG.thigh, o.pantsM, hp); const kn = grp(hp, 0, -.46, 0);
+    mesh(o.soldier ? ZG.shinBoot : ZG.shin, o.soldier ? o.bootM : o.pantsM, kn); mesh(ZG.boot, o.bootM, kn, 0, -.44, 0); return [hp, kn]; };
   const [armL, elbowL] = arm(-1), [armR, elbowR] = arm(1), [legL, kneeL] = leg(-1), [legR, kneeR] = leg(1);
   g.scale.setScalar(rand(.94, 1.06));
   return { g, hips, spine, torso, head, jawP, armL, armR, elbowL, elbowR, legL, legR, kneeL, kneeR, meshes };
@@ -2280,7 +2309,7 @@ function updatePlayer(dt) {
   vm.visible = P.knife <= 0;
   knifeMesh.visible = P.knife > 0; if (P.knife > 0) { const t = 1 - P.knife / .5; knifeMesh.position.set(.25 - t * .4, -.15, -.35 - Math.sin(t * Math.PI) * .2); knifeMesh.rotation.set(0, .6 - t * 1.4, -.3); }
   vmCam.fov = 60 * (1 - P.ads * .15); vmCam.updateProjectionMatrix();
-  if (vmGun && curW() && curW().up) M.pap.emissive.setHSL((G_.time * .15) % 1, .7, .25);
+  if (vmGun && curW() && curW().up) M.pap.emissive.setHSL(.62 + Math.sin(G_.time * 1.5) * .1, .9, .55); M.pap2.emissive.copy(M.pap.emissive);
   // crosshair
   const s = curW() ? wstats(curW()) : null;
   const gap = s ? 4 + s.spread * 260 * (P.moving ? 1.4 : 1) + P.kick * 10 : 6;
