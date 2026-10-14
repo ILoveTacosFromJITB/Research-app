@@ -27,6 +27,7 @@ namespace ZombiesPort
         readonly List<ZombieAgent> _all = new List<ZombieAgent>();
 
         public bool IsReady { get; private set; }
+        public bool HoldsDogs => prefab != null && prefab.IsDog;
         public int Capacity => size;
         public int FreeCount => _free.Count;
         public IReadOnlyList<ZombieAgent> All => _all;

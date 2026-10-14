@@ -10,7 +10,8 @@
 //                        |        Mystery Box (start location)
 //                       -Z  boarded window, zombies spawn outside it
 //
-//   - a 60 x 60 m floor, every system from the other Zombies menus, two Mystery Box locations
+//   - a 60 x 60 m floor, every system from the other Zombies menus, two Mystery Box locations,
+//     hellhound rounds with three dog spots around the start
 //   - the NavMesh baked (needs the AI Navigation package)
 //   - saved as Assets/Scenes/ZombiesTestLevel.unity and added to Build Settings
 //   - the app locked to landscape
@@ -94,6 +95,9 @@ namespace ZombiesPort.EditorTools
 
             CreateMysteryBox();                         // start room + room2 (so the teddy bear can move it)
             PowerUpMenu.CreatePowerUps();
+
+            EditorPlacement.Set(Vector3.zero, Vector3.forward, Vector3.zero);
+            DogMenu.CreateDogRounds();                  // hellhound rounds, dog spots 13-16 m around the start
 
             // ---- NavMesh, scene file, settings ----
             BakeNavMesh();

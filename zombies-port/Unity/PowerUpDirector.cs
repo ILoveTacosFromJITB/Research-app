@@ -113,6 +113,7 @@ namespace ZombiesPort
         void OnZombieKilled(ZombieAgent zombie, ZombiePlayer killer)
         {
             if (killer == null || zombie == null || zombie.IsOutside) return; // player kills inside the map only
+            if (zombie.IsDog) return;                    // dog_death(): hellhounds never call powerup_drop()
             if (State.Intermission) return;
 
             int broken = 0;
@@ -137,6 +138,9 @@ namespace ZombiesPort
                 return;
             }
         }
+
+        /// <summary>Drops a power-up at a spot on the ground (it floats 40 units up, like any drop).</summary>
+        public void SpawnAtGround(PowerUpId id, Vector3 ground) => Spawn(id, ground + Vector3.up * dropHeight);
 
         internal void Release(PowerUpPickup p) => p.gameObject.SetActive(false);
 

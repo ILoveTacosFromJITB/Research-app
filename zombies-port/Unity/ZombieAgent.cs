@@ -29,6 +29,12 @@ namespace ZombiesPort
     [RequireComponent(typeof(NavMeshAgent))]
     public class ZombieAgent : MonoBehaviour
     {
+        [Header("Type")]
+        [Tooltip("Hellhound: spawned by DogRoundDirector, always sprints, hunts one player, never drops power-ups.")]
+        [SerializeField] bool isDog;
+        [Tooltip("Damage per hit on a player. Zombies 50 (player_damage_override default), dogs 40.")]
+        [SerializeField] int meleeDamage = 50;
+
         [Header("Speeds (meters per second)")]
         [SerializeField] float walkSpeed = 1.0f;
         [SerializeField] float runSpeed = 2.6f;
@@ -44,6 +50,8 @@ namespace ZombiesPort
 
         [SerializeField] Animator animator;
 
+        public bool IsDog => isDog;
+        public int MeleeDamage => meleeDamage;
         public int Health { get; private set; }
         public bool IsAlive { get; private set; }
         public ZombieSpeed Speed { get; private set; }
@@ -66,6 +74,7 @@ namespace ZombiesPort
         bool _hasSpeed, _hasAttack, _hasDie, _hasTear, _hasClimb;
 
         ZombiePlayer _target;
+        ZombiePlayer _favorite;   // ai.favoriteenemy: the player a dog was sent after
         Vector3 _lastDestination;
         float _nextRepath, _nextAttack, _nextFailsafe;
         Vector3 _failsafeOrigin;
@@ -109,8 +118,10 @@ namespace ZombiesPort
         /// Reset everything a previous life may have changed. With a window, head for it first;
         /// otherwise start chasing.
         /// </summary>
-        internal void Activate(RoundDirector director, int health, ZombieSpeed speed, Barricade window = null)
+        internal void Activate(RoundDirector director, int health, ZombieSpeed speed, Barricade window = null,
+                               ZombiePlayer favoriteEnemy = null)
         {
+            _favorite = favoriteEnemy;
             _director = director;
             Health = health;
             IsAlive = true;
@@ -319,7 +330,10 @@ namespace ZombiesPort
 
         void Repath()
         {
-            _target = _director.NearestPlayer(transform.position);
+            // Dogs stay on their assigned player while that player is up; everyone else takes the nearest.
+            _target = _favorite != null && !_favorite.IsDowned && !_favorite.IsSpectating
+                ? _favorite
+                : _director.NearestPlayer(transform.position);
             if (_target == null) { _nav.isStopped = true; return; }
 
             _nav.isStopped = false;

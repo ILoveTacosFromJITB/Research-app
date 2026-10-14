@@ -231,6 +231,9 @@ namespace ZombiesPort
             Rebuilds.StartRound(RoundNumber); // rebuild_barrier_cap_per_round = min(50 * round, 500)
         }
 
+        /// <summary>dog_round_spawning(): level.zombie_total = the round's dog count instead.</summary>
+        public void StartDogQueue(int dogs) => ZombieTotal = Math.Max(0, dogs);
+
         /// <summary>Takes one zombie off the queue for spawning (level.zombie_total--).</summary>
         public bool TryTakeSpawnTicket()
         {

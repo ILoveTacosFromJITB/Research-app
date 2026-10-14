@@ -16,10 +16,13 @@ namespace ZombiesPort
         [SerializeField] Barricade window;
         [Tooltip("The zone this spawner belongs to (the GSC zone volume's target). Empty = not zone-restricted.")]
         [SerializeField] string zone = "start_zone";
+        [Tooltip("A hellhound spot (the zone's \"_dog\" locations): used only in dog rounds, never for zombies.")]
+        [SerializeField] bool dogsOnly;
 
         public bool IsActive { get; set; }
         public Barricade Window => window;
         public string Zone => zone;
+        public bool DogsOnly => dogsOnly;
 
         void Awake() => IsActive = activeAtStart;
 

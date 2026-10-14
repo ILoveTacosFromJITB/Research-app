@@ -84,7 +84,8 @@ namespace ZombiesPort
         public void TakeZombieHit(ZombieAgent zombie)
         {
             if (_director != null && _director.IsGameOver) return;
-            switch (Vitals.TakeHit(config.ZombieHitDamage, zombie, Time.time))
+            int damage = zombie != null ? zombie.MeleeDamage : config.ZombieHitDamage; // eAttacker.meleeDamage
+            switch (Vitals.TakeHit(damage, zombie, Time.time))
             {
                 case HitResult.Hurt: Damaged?.Invoke(this); break;
                 case HitResult.Lethal: _director?.HandleLethalHit(this); break;

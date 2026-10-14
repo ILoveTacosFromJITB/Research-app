@@ -50,6 +50,9 @@ namespace ZombiesPort
         static readonly WaitForSeconds Wait05 = new WaitForSeconds(0.5f);
         ZombieSpawnPoint _lastSpawn;
         ZoneManager _zones;
+        DogRoundDirector _dogs;
+
+        public ZoneManager Zones => _zones;
         bool _speedUpArmed;
         bool _warnedNoSpawns;
 
@@ -60,7 +63,10 @@ namespace ZombiesPort
                 Debug.LogError("RoundDirector: add a GameBootstrap to the scene.", this);
                 yield break;
             }
-            if (pool == null) pool = FindFirstObjectByType<ZombiePool>();
+            if (pool == null)
+                foreach (var p in FindObjectsByType<ZombiePool>(FindObjectsSortMode.None))
+                    if (!p.HoldsDogs) { pool = p; break; } // Never the hellhound pool.
+            _dogs = FindFirstObjectByType<DogRoundDirector>();
             _zones = FindFirstObjectByType<ZoneManager>();
             if (spawnPoints.Count == 0)
                 spawnPoints.AddRange(FindObjectsByType<ZombieSpawnPoint>(FindObjectsSortMode.None));
@@ -83,18 +89,27 @@ namespace ZombiesPort
             IsBetweenRounds = false;
             RoundStarted?.Invoke(state.RoundNumber);
 
-            Coroutine spawning = StartCoroutine(SpawnRoutine());
-
-            // round_wait(): GSC waited 1 s, then checked once a second.
-            yield return new WaitForSeconds(1f);
-            while (!state.IsRoundOver(AliveCount))
+            if (_dogs != null && _dogs.IsDogRound(state.RoundNumber))
             {
+                // dog_round_tracker(): this round's spawn and wait functions are the hellhounds'.
+                yield return _dogs.RunDogRound(this, state);
                 if (state.Intermission) yield break;
-                SpeedUpLastZombie(state);
-                yield return Wait05;
             }
+            else
+            {
+                Coroutine spawning = StartCoroutine(SpawnRoutine());
 
-            StopCoroutine(spawning);
+                // round_wait(): GSC waited 1 s, then checked once a second.
+                yield return new WaitForSeconds(1f);
+                while (!state.IsRoundOver(AliveCount))
+                {
+                    if (state.Intermission) yield break;
+                    SpeedUpLastZombie(state);
+                    yield return Wait05;
+                }
+
+                StopCoroutine(spawning);
+            }
             IsBetweenRounds = true;
             float breakSeconds = state.Vars.BetweenRoundTime;
             RoundEnded?.Invoke(state.RoundNumber, breakSeconds);
@@ -149,7 +164,7 @@ namespace ZombiesPort
             float maxSqr = maxSpawnDistance * maxSpawnDistance;
             foreach (var p in spawnPoints)
             {
-                if (p == null || !p.IsActive) continue;
+                if (p == null || !p.IsActive || p.DogsOnly) continue;
                 if (_zones != null && !_zones.CanSpawnAt(p)) continue; // create_spawner_list(): enabled + active zones only
                 if (maxSpawnDistance > 0f && !AnyPlayerWithin(p.transform.position, maxSqr)) continue;
                 _candidates.Add(p);
@@ -197,6 +212,9 @@ namespace ZombiesPort
             }
             return best;
         }
+
+        /// <summary>A hellhound spawned by DogRoundDirector joins the live list (round tracking, Nuke).</summary>
+        internal void AdoptSpawned(ZombieAgent z) => _alive.Add(z);
 
         internal void NotifyKilled(ZombieAgent z, ZombiePlayer killer)
         {

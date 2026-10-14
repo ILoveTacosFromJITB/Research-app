@@ -40,7 +40,7 @@ This creates and saves `Assets/Scenes/ZombiesTestLevel.unity`:
 | Left | three wall guns (M14, Olympia, MP40) |
 | Right | Quick Revive, Juggernog, the power switch, and the Mystery Box |
 | Ahead | a 1000-point door into a second room, which has a second Mystery Box spot |
-| Overall | round system, health and last stand, perks, and power-ups |
+| Overall | round system, health and last stand, perks, power-ups, and hellhound rounds (round 5, 6 or 7, then every 4–5 rounds) |
 
 It also bakes the NavMesh (zombie pathfinding) and locks the app to landscape.
 
@@ -66,6 +66,7 @@ Useful test shortcuts (Play mode; right-click a component's header in the Inspec
 |---|---|
 | **Round System** → RoundDirector | **Debug: Kill All Zombies** (skip a round) |
 | **Round System** → PowerUpDirector | **Debug: Drop Nuke / Max Ammo / ...** |
+| **Round System** → DogRoundDirector | **Debug: Next Round Is a Dog Round**, then kill all zombies to get there |
 
 ## 5. Put it on the phone
 
