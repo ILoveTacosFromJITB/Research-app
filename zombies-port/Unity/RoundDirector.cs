@@ -26,7 +26,7 @@ namespace ZombiesPort
         [Tooltip("round_start(): wait( 2 ) before round 1.")]
         [SerializeField] float roundStartDelay = 2f;
         [Tooltip("Only spawn at points within this distance of a player (meters). 0 = any active point. " +
-                 "Stands in for zone-based spawning until the zone manager is ported.")]
+                 "With a ZoneManager in the scene you usually leave this at 0: zones decide.")]
         [SerializeField] float maxSpawnDistance = 0f;
 
         /// <summary>A new round began (number). The chalk HUD shows it.</summary>
@@ -47,6 +47,7 @@ namespace ZombiesPort
         static readonly WaitForSeconds Wait01 = new WaitForSeconds(0.1f);
         static readonly WaitForSeconds Wait05 = new WaitForSeconds(0.5f);
         ZombieSpawnPoint _lastSpawn;
+        ZoneManager _zones;
         bool _speedUpArmed;
         bool _warnedNoSpawns;
 
@@ -58,6 +59,7 @@ namespace ZombiesPort
                 yield break;
             }
             if (pool == null) pool = FindFirstObjectByType<ZombiePool>();
+            _zones = FindFirstObjectByType<ZoneManager>();
             if (spawnPoints.Count == 0)
                 spawnPoints.AddRange(FindObjectsByType<ZombieSpawnPoint>(FindObjectsSortMode.None));
 
@@ -146,6 +148,7 @@ namespace ZombiesPort
             foreach (var p in spawnPoints)
             {
                 if (p == null || !p.IsActive) continue;
+                if (_zones != null && !_zones.CanSpawnAt(p)) continue; // create_spawner_list(): enabled + active zones only
                 if (maxSpawnDistance > 0f && !AnyPlayerWithin(p.transform.position, maxSqr)) continue;
                 _candidates.Add(p);
             }

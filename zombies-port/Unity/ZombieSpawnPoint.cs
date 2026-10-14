@@ -1,9 +1,9 @@
 // ZombieSpawnPoint.cs
 //
 // A place zombies can spawn: one of the GSC "zombie_spawner" entities that the zone
-// manager put into level.enemy_spawns. In BO1 only spawners in zones the players had opened
-// were active. Until the zone manager is ported, tick "Active At Start" on the spawners for
-// the starting room, and have doors set IsActive = true on the rest when they open.
+// manager put into level.enemy_spawns. Set Zone to the zone it belongs to: with a ZoneManager in
+// the scene, it's only used while that zone is open and occupied (or next to an occupied zone).
+// "Active At Start" is a manual on/off switch on top of that, for scripted events.
 
 using UnityEngine;
 
@@ -14,9 +14,12 @@ namespace ZombiesPort
         [SerializeField] bool activeAtStart = true;
         [Tooltip("The window zombies from here must tear through. Leave empty for spawns that are already inside.")]
         [SerializeField] Barricade window;
+        [Tooltip("The zone this spawner belongs to (the GSC zone volume's target). Empty = not zone-restricted.")]
+        [SerializeField] string zone = "start_zone";
 
         public bool IsActive { get; set; }
         public Barricade Window => window;
+        public string Zone => zone;
 
         void Awake() => IsActive = activeAtStart;
 
