@@ -157,6 +157,9 @@ namespace ZombiesPort
 
         public event Action<int> OnRoundChanged;  // new round number, used for the chalk tally HUD
 
+        /// <summary>Board-rebuild points earned this round, per player, and the round's cap.</summary>
+        public RebuildRewards Rebuilds { get; } = new RebuildRewards();
+
         /// <summary>level.solo_lives_given: solo Quick Revive can only be bought 3 times per game.</summary>
         public SoloQuickReviveTracker SoloQuickRevive { get; } = new SoloQuickReviveTracker();
 
@@ -222,6 +225,7 @@ namespace ZombiesPort
         {
             ZombieHealth = CalculateZombieHealth(RoundNumber, Vars);
             ZombieTotal = CalculateZombieTotal(RoundNumber, _players.Count, FirstRound, Vars);
+            Rebuilds.StartRound(RoundNumber); // rebuild_barrier_cap_per_round = min(50 * round, 500)
         }
 
         /// <summary>Takes one zombie off the queue for spawning (level.zombie_total--).</summary>

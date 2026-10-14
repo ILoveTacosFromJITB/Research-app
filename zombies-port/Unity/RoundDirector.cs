@@ -128,7 +128,7 @@ namespace ZombiesPort
                 var z = pool.Take(point.transform.position, point.transform.rotation);
                 if (z == null) { state.ReturnSpawnTicket(); continue; }
 
-                z.Activate(this, state.ZombieHealth, state.RollSpeed());
+                z.Activate(this, state.ZombieHealth, state.RollSpeed(), point.Window);
                 _alive.Add(z);
 
                 yield return new WaitForSeconds(state.SpawnDelay);

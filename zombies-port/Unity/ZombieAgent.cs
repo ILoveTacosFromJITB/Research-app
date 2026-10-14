@@ -6,13 +6,19 @@
 //   find_flesh (simplified)                  : chase the nearest player on the NavMesh
 //   zombie_damage / zombie_death_event       : 10 points per non-lethal hit, kill points on death
 //   round_spawn_failsafe                     : stuck or fallen zombies are recycled
+//   zombie_goto_entrance / tear_into_building: walk to a window, pull boards one at a time
+//                                              (reaching through to swipe at nearby players),
+//                                              then climb in once every board is gone
 //
-// Not ported yet: tearing down window barriers and climbing in, crawlers, gibbing, and
-// dealing damage to the player (the attack is raised as an event for the player-health system).
+// A zombie spawned at a ZombieSpawnPoint linked to a Barricade goes through the window phases
+// first; one spawned at an unlinked point (inside, or a "riser") chases straight away.
+//
+// Not ported yet: crawlers and gibbing. The attack is raised as an event that LastStandDirector
+// turns into player damage.
 //
 // Prefab setup: NavMeshAgent + capsule Collider on the root, optional Animator with a float
-// "Speed" (0 walk, 1 run, 2 sprint) and triggers "Attack" and "Die". Missing parameters are
-// skipped, so a plain capsule works for testing. Bake a NavMesh (AI Navigation package).
+// "Speed" (0 walk, 1 run, 2 sprint) and triggers "Attack", "Die", "Tear" and "Climb". Missing
+// parameters are skipped, so a plain capsule works for testing. Bake a NavMesh (AI Navigation package).
 
 using System.Collections;
 using UnityEngine;
@@ -47,18 +53,33 @@ namespace ZombiesPort
         static readonly int SpeedHash = Animator.StringToHash("Speed");
         static readonly int AttackHash = Animator.StringToHash("Attack");
         static readonly int DieHash = Animator.StringToHash("Die");
+        static readonly int TearHash = Animator.StringToHash("Tear");
+        static readonly int ClimbHash = Animator.StringToHash("Climb");
+
+        enum Phase { Chasing, ToWindow, AtWindow, Climbing }
 
         ZombiePool _pool;
         RoundDirector _director;
         NavMeshAgent _nav;
         Collider[] _colliders;
         WaitForSeconds _corpseWait;
-        bool _hasSpeed, _hasAttack, _hasDie;
+        bool _hasSpeed, _hasAttack, _hasDie, _hasTear, _hasClimb;
 
         ZombiePlayer _target;
         Vector3 _lastDestination;
         float _nextRepath, _nextAttack, _nextFailsafe;
         Vector3 _failsafeOrigin;
+
+        // Window phases
+        Phase _phase;
+        Barricade _window;
+        bool _hasSpot;
+        int _board = -1;
+        float _phaseTimer, _nextReachIn;
+        Vector3 _climbFrom;
+
+        /// <summary>True until the zombie has climbed in (or if it never had a window).</summary>
+        public bool IsOutside => _phase != Phase.Chasing;
 
         /// <summary>Called once by the pool at load time: cache everything so spawning is cheap.</summary>
         internal void OnCreated(ZombiePool pool)
@@ -78,12 +99,17 @@ namespace ZombiesPort
                     if (p.nameHash == SpeedHash) _hasSpeed = true;
                     else if (p.nameHash == AttackHash) _hasAttack = true;
                     else if (p.nameHash == DieHash) _hasDie = true;
+                    else if (p.nameHash == TearHash) _hasTear = true;
+                    else if (p.nameHash == ClimbHash) _hasClimb = true;
                 }
             }
         }
 
-        /// <summary>Reset everything a previous life may have changed, then start chasing.</summary>
-        internal void Activate(RoundDirector director, int health, ZombieSpeed speed)
+        /// <summary>
+        /// Reset everything a previous life may have changed. With a window, head for it first;
+        /// otherwise start chasing.
+        /// </summary>
+        internal void Activate(RoundDirector director, int health, ZombieSpeed speed, Barricade window = null)
         {
             _director = director;
             Health = health;
@@ -105,6 +131,12 @@ namespace ZombiesPort
             _lastDestination = new Vector3(float.MaxValue, 0f, 0f);
             _failsafeOrigin = transform.position;
             _nextFailsafe = now + director.State.Vars.FailsafeIntervalSeconds;
+
+            _window = window;
+            _phase = window != null ? Phase.ToWindow : Phase.Chasing;
+            _hasSpot = false;
+            _board = -1;
+            _nextReachIn = now;
         }
 
         public void SetSpeed(ZombieSpeed speed)
@@ -125,6 +157,151 @@ namespace ZombiesPort
             if (!IsAlive || IsFrozen) return;
             float now = Time.time;
 
+            switch (_phase)
+            {
+                case Phase.ToWindow: ToWindow(now); break;
+                case Phase.AtWindow: AtWindow(now); break;
+                case Phase.Climbing: Climb(now); break;
+                default: Chase(now); break;
+            }
+
+            // round_spawn_failsafe() skips zombies busy at a window (lastchunk_destroy_time).
+            if (_phase == Phase.AtWindow || _phase == Phase.Climbing)
+            {
+                _nextFailsafe = now + _director.State.Vars.FailsafeIntervalSeconds;
+                _failsafeOrigin = transform.position;
+            }
+            else if (now >= _nextFailsafe)
+            {
+                Failsafe(now);
+            }
+        }
+
+        // ---------------- Window phases ----------------
+
+        /// <summary>zombie_goto_entrance(): walk to a free attack spot (or wait behind them).</summary>
+        void ToWindow(float now)
+        {
+            if (!_hasSpot)
+            {
+                if (_window.TryClaimSpot(this, out var spot))
+                {
+                    _hasSpot = true;
+                    _nav.isStopped = false;
+                    _nav.SetDestination(spot);
+                }
+                else if (now >= _nextRepath)
+                {
+                    _nextRepath = now + 0.5f; // All three spots taken: queue up and keep asking.
+                    _nav.SetDestination(_window.WaitPoint);
+                }
+                return;
+            }
+
+            if (_nav.pathPending || _nav.remainingDistance > 0.3f) return;
+            _nav.isStopped = true;
+            _phase = Phase.AtWindow;
+        }
+
+        /// <summary>tear_into_building(): pull the nearest free board; reach through now and then.</summary>
+        void AtWindow(float now)
+        {
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, _window.FacingInside, 360f * Time.deltaTime);
+
+            if (_window.IsOpen && _board < 0) { StartClimb(now); return; }
+
+            if (_board < 0)
+            {
+                _board = _window.ClaimBoard(transform.position);
+                if (_board >= 0)
+                {
+                    _phaseTimer = now + _window.TearSeconds;
+                    if (_hasTear) animator.SetTrigger(TearHash);
+                }
+                else if (now >= _nextReachIn)
+                {
+                    // Every board left is taken by another zombie: swipe through the gaps instead.
+                    _nextReachIn = now + attackInterval;
+                    TryReachIn();
+                }
+                return;
+            }
+
+            if (now < _phaseTimer) return;
+            _window.TearBoard(_board);
+            _board = -1;
+            TryReachIn();
+        }
+
+        /// <summary>
+        /// should_attack_player_thru_boards(): 50% of the time, swipe at every standing player
+        /// within 90 units (about 2.3 m). Damage goes through LastStandDirector like any other hit.
+        /// </summary>
+        void TryReachIn()
+        {
+            if (Random.Range(0, 100) >= BarricadeState.ReachInChancePercent) return;
+            var boot = GameBootstrap.Instance;
+            if (boot == null) return;
+            float reach = BarricadeState.TearReachUnits * MysteryBoxRules.UnitsToMeters;
+            bool swung = false;
+            foreach (var p in boot.Players)
+            {
+                if (p == null || p.IsDowned || p.IsSpectating) continue;
+                Vector3 d = p.transform.position - transform.position;
+                d.y = 0f;
+                if (d.sqrMagnitude > reach * reach) continue;
+                if (!swung && _hasAttack) animator.SetTrigger(AttackHash);
+                swung = true;
+                _director.NotifyAttack(this, p);
+            }
+        }
+
+        void StartClimb(float now)
+        {
+            _window.ReleaseSpot(this);
+            _phase = Phase.Climbing;
+            _phaseTimer = now;
+            _climbFrom = transform.position;
+            _nav.enabled = false; // Scripted move through the window; the NavMesh doesn't link through it.
+            if (_hasClimb) animator.SetTrigger(ClimbHash);
+        }
+
+        void Climb(float now)
+        {
+            float t = (now - _phaseTimer) / Mathf.Max(0.01f, _window.ClimbSeconds);
+            Vector3 to = _window.InsidePoint;
+            if (t < 1f)
+            {
+                Vector3 p = Vector3.Lerp(_climbFrom, to, t);
+                p.y += Mathf.Sin(t * Mathf.PI) * 0.9f; // Up over the sill and down inside.
+                transform.position = p;
+                return;
+            }
+
+            transform.position = to;
+            _nav.enabled = true;
+            _nav.Warp(to);
+            _nav.isStopped = false;
+            _phase = Phase.Chasing;
+            _window = null;
+            _nextRepath = now;
+            _lastDestination = new Vector3(float.MaxValue, 0f, 0f);
+        }
+
+        /// <summary>Gives back the attack spot and any half-pulled board (on death or recycling).</summary>
+        void LeaveWindow()
+        {
+            if (_window == null) return;
+            if (_board >= 0) _window.ReleaseBoard(_board);
+            _window.ReleaseSpot(this);
+            _board = -1;
+            _window = null;
+        }
+
+        // ---------------- Chasing ----------------
+
+        void Chase(float now)
+        {
             if (now >= _nextRepath)
             {
                 _nextRepath = now + repathInterval;
@@ -138,8 +315,6 @@ namespace ZombiesPort
                 if (_hasAttack) animator.SetTrigger(AttackHash);
                 _director.NotifyAttack(this, _target);
             }
-
-            if (now >= _nextFailsafe) Failsafe(now);
         }
 
         void Repath()
@@ -179,6 +354,7 @@ namespace ZombiesPort
             if (fell || (stuck && !attacking))
             {
                 IsAlive = false;
+                LeaveWindow();
                 _director.NotifyTimedOut(this);
                 Despawn();
                 return;
@@ -216,6 +392,7 @@ namespace ZombiesPort
             if (attacker != null && attacker.Score != null)
                 attacker.Score.Add(state.PointsForKill(zone, melee), true, state.Intermission);
 
+            LeaveWindow();
             _nav.enabled = false;
             foreach (var c in _colliders) c.enabled = false; // Corpses don't block bullets or players.
             if (_hasDie) animator.SetTrigger(DieHash);

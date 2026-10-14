@@ -25,7 +25,8 @@ namespace ZombiesPort
         [SerializeField] Camera playerCamera;
         [Tooltip("Every gun the player can hold. Ids not listed fall back to the first entry's stats.")]
         [SerializeField] List<WeaponDefinition> catalog = new List<WeaponDefinition>();
-        [SerializeField] LayerMask hitMask = ~0;
+        [Tooltip("Excludes Ignore Raycast by default, so the invisible window blocker doesn't stop bullets (boards never did in BO1).")]
+        [SerializeField] LayerMask hitMask = Physics.DefaultRaycastLayers;
         [Tooltip("Hold Fire to keep shooting a semi-auto at its top rate. Recommended on touch.")]
         [SerializeField] bool holdToRepeatSemiAuto = true;
         [SerializeField] MeleeStats knife = MeleeStats.Knife();
@@ -320,7 +321,8 @@ namespace ZombiesPort
             Equipped?.Invoke(Current);
         }
 
-        WeaponState GetState(string id)
+        /// <summary>The ammo state for a gun this player has or is about to get (created on first use).</summary>
+        public WeaponState GetState(string id)
         {
             if (!_states.TryGetValue(id, out var s))
             {
@@ -341,6 +343,17 @@ namespace ZombiesPort
         {
             foreach (var d in catalog)
                 if (d != null && d.stats.Id == id) return d;
+
+            // No asset: use the gun's preset stats (wall weapons) rather than the M1911's.
+            if (WeaponPresets.TryGet(id, out var preset))
+            {
+                var runtime = WeaponDefinition.CreateM1911();
+                runtime.name = preset.DisplayName + " (preset)";
+                runtime.stats = preset;
+                catalog.Add(runtime);
+                return runtime;
+            }
+
             if (_warnedFallback.Add(id))
                 Debug.LogWarning("PlayerWeapon: no WeaponDefinition for \"" + id + "\", using " +
                                  catalog[0].stats.DisplayName + " stats. Create one via Create > Zombies > Weapon Definition.", this);

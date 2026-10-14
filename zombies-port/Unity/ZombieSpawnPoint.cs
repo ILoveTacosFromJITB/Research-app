@@ -12,8 +12,11 @@ namespace ZombiesPort
     public class ZombieSpawnPoint : MonoBehaviour
     {
         [SerializeField] bool activeAtStart = true;
+        [Tooltip("The window zombies from here must tear through. Leave empty for spawns that are already inside.")]
+        [SerializeField] Barricade window;
 
         public bool IsActive { get; set; }
+        public Barricade Window => window;
 
         void Awake() => IsActive = activeAtStart;
 
