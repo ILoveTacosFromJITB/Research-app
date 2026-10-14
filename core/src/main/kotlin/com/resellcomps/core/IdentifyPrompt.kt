@@ -33,7 +33,8 @@ object IdentifyPrompt {
     }
 
     fun fromJson(o: JsonObject): ItemIdentification = ItemIdentification(
-        identified = (o["identified"] as? JsonPrimitive)?.booleanOrNull ?: false,
+        // Some free models drop this field; a usable search means it was identified.
+        identified = (o["identified"] as? JsonPrimitive)?.booleanOrNull ?: !o.str("search_query").isNullOrBlank(),
         name = o.str("name") ?: "Unknown item",
         brand = o.str("brand"),
         model = o.str("model"),
