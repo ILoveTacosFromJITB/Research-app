@@ -376,6 +376,11 @@ const SFX = {
     noiseHit({ dur: 2.4, f: 120, type: 'lowpass', vol: .4, attack: .3 });
     [0, .5, 1.0].forEach((d, i) => tone({ f: [220, 207.6, 196][i], dur: 1.6, type: 'triangle', vol: .14, delay: d + .2 }));
   },
+  dogRound() {
+    noiseHit({ dur: 3, f: 200, f2: 50, type: 'lowpass', vol: .8, attack: .4 });
+    tone({ f: 46, dur: 4, type: 'sawtooth', vol: .2, filter: 260 });
+    for (let i = 0; i < 3; i++) SFX.groan(rand(-.6, .6), .25, 1.8 + i * .1);
+  },
   roundEnd() { [329.6, 293.7, 261.6, 196].forEach((f, i) => tone({ f, dur: 1.8, type: 'triangle', vol: .16, delay: i * .45 })); tone({ f: 49, dur: 3.5, vol: .35, attack: .5 }); },
   power() { noiseHit({ dur: 1.6, f: 300, f2: 60, type: 'lowpass', vol: .9 }); tone({ f: 60, f2: 38, dur: 2.5, type: 'sawtooth', vol: .25, filter: 300 }); tone({ f: 120, f2: 240, dur: 1.5, type: 'square', vol: .05, filter: 1200, delay: .4 }); },
   boom() { noiseHit({ dur: .8, f: 900, f2: 80, type: 'lowpass', vol: .8 }); },
@@ -584,16 +589,16 @@ function buildMaterials() {
 }
 
 // ---------------------------------------------------------------- Map (grid)
-const CELL = 2, GW = 42, GH = 41, OX = 4, OY = 3;
+const CELL = 2, GW = 42, GH = 47, OX = 4, OY = 9;
 const G = new Array(GW * GH).fill('#');
 const gi = (gx, gy) => gy * GW + gx;
 const at = (gx, gy) => (gx < 0 || gy < 0 || gx >= GW || gy >= GH) ? '#' : G[gi(gx, gy)];
 function fill(x0, y0, x1, y1, ch) { for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) G[gi(x + OX, y + OY)] = ch; }
 const mc = (x, y) => ({ x: (x + OX + .5) * CELL, z: (y + OY + .5) * CELL });
 const cellOf = (wx, wz) => [Math.floor(wx / CELL), Math.floor(wz / CELL)];
-const ZONE_CH = { '.': 'lobby', d: 'dressing', a: 'alley', t: 'theater', s: 'theater', b: 'theater', z: 'closet' };
-const ZH = { lobby: 6, dressing: 5, alley: 8, theater: 10, closet: 4.5 };
-const FLOOR_MAT = { '.': 'tile', d: 'concrete', a: 'cobble', t: 'carpet', b: 'carpet', s: 'planks', z: 'dirt' };
+const ZONE_CH = { '.': 'lobby', d: 'dressing', a: 'alley', t: 'theater', s: 'theater', b: 'theater', z: 'closet', p: 'projector' };
+const ZH = { lobby: 6, dressing: 5, alley: 8, theater: 10, closet: 4.5, projector: 4.5 };
+const FLOOR_MAT = { '.': 'tile', d: 'concrete', a: 'cobble', t: 'carpet', b: 'carpet', s: 'planks', z: 'dirt', p: 'planks' };
 const DOOR_DEFS = {
   '1': { cost: 750, kind: 'debris' }, '2': { cost: 1000, kind: 'door' },
   '3': { cost: 1000, kind: 'debris' }, '4': { cost: 1000, kind: 'door' }, 'P': { cost: 0, kind: 'theater', power: true }
@@ -613,6 +618,7 @@ fill(6, 4, 7, 5, '2');            // dressing <-> stage
 fill(26, 27, 27, 28, '3');        // lobby <-> alley
 fill(26, 4, 27, 5, '4');          // alley <-> stage
 fill(15, 22, 18, 23, 'P');        // lobby <-> theater (opens with power)
+fill(13, -7, 20, -4, 'p');        // projector room, reached only by teleporter
 
 const WINDOW_DEFS = [[11, 34, 0, 1], [22, 34, 0, 1], [7, 32, -1, 0], [26, 32, 1, 0], [0, 10, -1, 0], [0, 22, -1, 0], [33, 10, 1, 0], [33, 22, 1, 0], [11, 1, 0, -1], [22, 1, 0, -1]];
 const windows = []; const windowAt = new Map();
@@ -629,7 +635,7 @@ const GROUND_SPAWNS = [[9, 16], [24, 10], [16, 9]].map(([x, y]) => ({ ...mc(x, y
 const SPAWN = (() => { const c = mc(16, 30); return { x: c.x + 1, z: c.z }; })();
 
 const doorOpen = {}; const doorObjs = {};
-const passP = ch => ch === '.' || ch === 'd' || ch === 'a' || ch === 't' || ch === 's' || (isDoorCh(ch) && doorOpen[ch]);
+const passP = ch => ch === '.' || ch === 'd' || ch === 'a' || ch === 't' || ch === 's' || ch === 'p' || (isDoorCh(ch) && doorOpen[ch]);
 const passZch = ch => passP(ch) || ch === 'W' || ch === 'z';
 const playerPass = (gx, gy) => passP(at(gx, gy));
 const zombiePass = (gx, gy) => { const ch = at(gx, gy); if (ch === 'W') return windowAt.get(gi(gx, gy)).boards === 0; return passZch(ch); };
@@ -655,7 +661,7 @@ const _o = new THREE.Object3D();
 function mtx(x, y, z, ry = 0, rx = 0, s = 1) { _o.position.set(x, y, z); _o.rotation.set(rx, ry, 0); _o.scale.set(s, s, s); _o.updateMatrix(); return _o.matrix.clone(); }
 
 function wallMatFor(gx, gy) {
-  let best = null, pri = { theater: 5, lobby: 4, dressing: 3, alley: 2, closet: 1 };
+  let best = null, pri = { theater: 5, lobby: 4, dressing: 3, alley: 2, closet: 1, projector: 6 };
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
     const z = ZONE_CH[at(gx + dx, gy + dy)]; if (z && (!best || pri[z] > pri[best])) best = z;
   }
@@ -665,7 +671,7 @@ function neighborH(gx, gy) {
   let h = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const z = ZONE_CH[at(gx + dx, gy + dy)]; if (z) h = Math.max(h, ZH[z]); }
   return h;
 }
-const ZONE_WALLMAT = { theater: 'damask', lobby: 'panel', dressing: 'plaster', alley: 'brick', closet: 'darkBrick' };
+const ZONE_WALLMAT = { theater: 'damask', lobby: 'panel', dressing: 'plaster', alley: 'brick', closet: 'darkBrick', projector: 'panel' };
 
 function buildWorld() {
   const groups = new Map(); // key mat|h|y0 -> matrices
@@ -799,6 +805,7 @@ function buildWorld() {
   { const c = mc(16, 15); lights.theater = pl(0xff3a2a, c.x + 1, 8, c.z, .45, 34); }
   { const c = mc(16, 4); lights.stage = pl(0xffe8c8, c.x + 1, 7, c.z + 2, 0, 26); }
   { const c = mc(12, 4); lights.closetN = pl(0x4060a0, c.x, 3, c.z - 8, .2, 12); }
+  { const c = mc(16, -6); lights.projector = pl(0xb58bff, c.x + 1, 3.6, c.z + 1, .9, 16); }
 }
 
 // ---------------------------------------------------------------- Props: perks, wall buys, box, power, PaP
@@ -818,6 +825,7 @@ function wallPlace(x, y, dir, depth) {
 const interactables = [];
 const perkObjs = {};
 let box = null, pap = null, powerObj = null;
+const tele = {};
 
 function buildGun(id, up) {
   const s = WEAPONS[id], g = new THREE.Group();
@@ -949,29 +957,65 @@ function buildProps() {
     world.add(g); powerObj = { g, lever, lamp };
     interactables.push({ x: wp.cx + 1, z: wp.cz, r: 2.2, hint() { return G_.power ? '' : `${KEY} to turn on the Power`; }, use() { if (!G_.power) powerOn(); } });
   }
-  // Pack-a-Punch (appears on stage once the power is on)
-  { const c = mc(16, 4); const g = new THREE.Group(); g.position.set(c.x + 1, 0, c.z);
+  // Pack-a-Punch in the projector room
+  { const c = mc(16, -6); const g = new THREE.Group(); g.position.set(c.x + 1, 0, c.z);
     const base = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.1, 1.1), lam({ color: 0x2b2340 })); base.position.y = .55; g.add(base);
     const top = new THREE.Mesh(new THREE.BoxGeometry(1.2, .5, .9), lam({ color: 0x55408a, emissive: 0x1c1040 })); top.position.y = 1.35; g.add(top);
     for (const s of [-1, 1]) { const roll = new THREE.Mesh(new THREE.CylinderGeometry(.2, .2, 1.0, 10), M.gold); roll.rotation.x = Math.PI / 2; roll.position.set(s * .75, 1.2, 0); g.add(roll); }
     const glow = new THREE.Mesh(new THREE.PlaneGeometry(1.0, .25), new THREE.MeshBasicMaterial({ color: 0xb88bff })); glow.position.set(0, 1.35, .46); g.add(glow);
     const glow2 = glow.clone(); glow2.position.z = -.46; glow2.rotation.y = Math.PI; g.add(glow2);
-    g.visible = false; world.add(g); pap = { g, x: g.position.x, z: g.position.z, glow };
+    world.add(g); pap = { g, x: g.position.x, z: g.position.z, glow }; obstacles.push({ x: pap.x, z: pap.z, r: 1.0 });
+    // the projector itself, aimed through a slot at the theater screen
+    const pc = mc(16, -4); const proj = new THREE.Group(); proj.position.set(pc.x + 1, 0, pc.z + .3);
+    const stand = new THREE.Mesh(new THREE.BoxGeometry(.7, 1.1, .7), M.iron); stand.position.y = .55; proj.add(stand);
+    const body = new THREE.Mesh(new THREE.BoxGeometry(.8, .6, 1.2), lam({ color: 0x3a3a3a })); body.position.y = 1.4; proj.add(body);
+    for (const z of [-.35, .35]) { const reel = new THREE.Mesh(new THREE.CylinderGeometry(.38, .38, .08, 16), M.iron); reel.rotation.z = Math.PI / 2; reel.position.set(0, 2.0, z); proj.add(reel); }
+    const lens = new THREE.Mesh(new THREE.CylinderGeometry(.12, .15, .3, 10), M.gold); lens.rotation.x = Math.PI / 2; lens.position.set(0, 1.4, .75); proj.add(lens);
+    world.add(proj); obstacles.push({ x: proj.position.x, z: proj.position.z, r: .6 });
     interactables.push({
       x: pap.x, z: pap.z, r: 2.3,
       hint() {
-        if (!G_.power) return '';
         const w = curW(); if (!w) return '';
         if (w.up) return 'This weapon is already upgraded';
         return `${KEY} to Pack-a-Punch ${wstats(w).name} [Cost: 5000]`;
       },
       use() {
-        if (!G_.power || P.busy > 0) return; const w = curW(); if (!w || w.up) return;
+        if (P.busy > 0) return; const w = curW(); if (!w || w.up) return;
         if (!spend(5000)) return;
         P.busy = 3.2; P.busyKind = 'pap'; SFX.jingle([196, 233, 277, 311, 370, 415, 494], 'square', .3, .07);
         later(3, () => { if (!P.weapons.includes(w)) return; w.up = true; w._s = null; const s = wstats(w); w.mag = s.mag; w.res = s.res; equip(P.weapons.indexOf(w)); SFX.buy(); });
       }
     });
+  }
+  // teleporter: activate the mainframe on stage, then link the pad in the lobby
+  { const wp = wallPlace(9, 2, 'N', .8); const g = new THREE.Group(); g.position.set(wp.x, 0, wp.z); g.rotation.y = wp.rot;
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(1.8, 2.4, .8), lam({ color: 0x3c3f38 })); cab.position.y = 1.2; g.add(cab);
+    for (let i = 0; i < 6; i++) { const d = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, .05, 10), M.gold); d.rotation.x = Math.PI / 2; d.position.set(-.6 + (i % 3) * .6, 1.5 + ((i / 3) | 0) * .45, .41); g.add(d); }
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(.1, 8, 6), new THREE.MeshBasicMaterial({ color: 0x551111 })); lamp.position.set(0, 2.55, .2); g.add(lamp);
+    world.add(g); obstacles.push({ x: wp.x, z: wp.z, r: .8 }); tele.coreLamp = lamp;
+    interactables.push({ x: wp.cx, z: wp.cz, r: 2.2,
+      hint() { if (!G_.power) return ''; return G_.tele === 'core' ? `${KEY} to activate the Mainframe` : ''; },
+      use() { if (G_.tele !== 'core') return; G_.tele = 'pad'; lamp.material.color.set(0xffd23a); tele.padMat.color.set(0xffd23a); SFX.power(); showNotice('Mainframe active. Link the teleporter in the lobby.'); } });
+  }
+  { const c = mc(23, 29); const g = new THREE.Group(); g.position.set(c.x, 0, c.z);
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.3, .15, 24), M.iron); disc.position.y = .07; g.add(disc);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x551111 }); tele.padMat = ringMat;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.0, .05, 6, 28), ringMat); ring.rotation.x = Math.PI / 2; ring.position.y = .17; g.add(ring);
+    for (let i = 0; i < 3; i++) { const a = i * 2.094; const post = new THREE.Mesh(new THREE.BoxGeometry(.12, 2.6, .12), M.gold); post.position.set(Math.cos(a) * 1.25, 1.3, Math.sin(a) * 1.25); g.add(post); }
+    world.add(g); tele.pad = { x: c.x, z: c.z };
+    interactables.push({ x: c.x, z: c.z, r: 1.8,
+      hint() {
+        if (!G_.power) return 'You must turn on the power first!';
+        if (G_.tele === 'core') return 'Activate the Mainframe on the stage first';
+        if (G_.tele === 'pad') return `${KEY} to link the Teleporter`;
+        if (G_.tele === 'ready') return `${KEY} to use the Teleporter`;
+        if (G_.tele === 'cool') return 'The Teleporter is cooling down';
+        return '';
+      },
+      use() {
+        if (G_.tele === 'pad') { G_.tele = 'ready'; ringMat.color.set(0x55ff66); tele.coreLamp.material.color.set(0x55ff66); SFX.buy(); showNotice('Teleporter linked'); }
+        else if (G_.tele === 'ready') teleportToPap();
+      } });
   }
   // doors
   for (const id in doorObjs) {
@@ -987,7 +1031,7 @@ function buildProps() {
         if (zombies.some(z => !z.dead && z.gx === w.gx && z.gy === w.gy)) return;
         P.repairT -= dt; if (P.repairT > 0) return; P.repairT = .85;
         w.boards++; updateBoards(w, true); SFX.repair();
-        if (G_.repairPts < 500) { addPoints(10, true); G_.repairPts += 10; }
+        if (G_.repairPts < Math.min(50 * G_.round, 500)) { addPoints(10, true); G_.repairPts += 10; }
       } });
   }
 }
@@ -1004,7 +1048,14 @@ function clearDisp() { for (let i = box.disp.children.length - 1; i >= 0; i--) {
 function boxRoll() {
   box.state = 'rolling'; box.t = 0; box.uses++; box.cycleT = 0;
   const pool = []; for (const id in WEAPONS) { const w = WEAPONS[id]; if (!w.box && !w.cost) continue; if (P.weapons.some(x => x.id === id)) continue; if (id === 'm1911') continue; for (let i = 0; i < (w.box || 1); i++) pool.push(id); }
-  box.teddyRoll = box.uses > 4 && Math.random() < .17;
+  const roll = Math.random() * 100, u = box.uses; let chance = -1;
+  if (u >= 4) {
+    if (box.moves === 0 && u >= 8) chance = 100;
+    else if (u < 8) chance = roll < 15 ? 100 : -1;
+    else if (u < 13) chance = roll < 30 ? 100 : -1;
+    else chance = roll < 50 ? 100 : -1;
+  }
+  box.teddyRoll = chance > roll;
   box.result = pick(pool);
   tone({ f: 330, dur: 4, type: 'triangle', vol: .05 });
   SFX.jingle([392, 523, 659, 784, 659, 523, 392, 523, 659, 880], 'sine', .38, .09);
@@ -1035,7 +1086,7 @@ function updateBox(dt) {
     box.disp.position.y = 1.6 + box.t * 1.2; box.teddy.rotation.y += dt * 3;
     if (box.t > 2.5) { clearDisp(); box.g.visible = false; box.state = 'away'; box.t = 0; }
   } else if (box.state === 'away') {
-    if (box.t > 6) { let s; do { s = (Math.random() * BOX_SPOTS.length) | 0; } while (s === box.spot); placeBox(s); box.g.visible = true; box.state = 'idle'; box.uses = 0; box.disp.position.y = .8; showNotice('The Mystery Box appeared in the ' + BOX_SPOTS[s].name); }
+    if (box.t > 6) { let s; do { s = (Math.random() * BOX_SPOTS.length) | 0; } while (s === box.spot); placeBox(s); box.g.visible = true; box.state = 'idle'; box.uses = 0; box.moves++; box.disp.position.y = .8; showNotice('The Mystery Box appeared in the ' + BOX_SPOTS[s].name); }
   }
 }
 function updateBoards(w, animate) {
@@ -1050,12 +1101,23 @@ function openDoor(id) {
   noiseHit({ dur: .8, f: 400, type: 'lowpass', vol: .6 });
   updateReach(); computeFlow(true);
 }
+function teleportToPap() {
+  G_.tele = 'cool'; tele.padMat.color.set(0x551111); tele.coreLamp.material.color.set(0x551111);
+  teleFlash(); const c = mc(16, -5); P.x = c.x - 2; P.z = c.z; P.yaw = 0; G_.papT = 30;
+  showNotice('Projector room: 30 seconds to Pack-a-Punch');
+  later(30, () => { teleFlash(); const s = mc(16, 6); P.x = s.x + rand(-2, 2); P.z = s.z; P.yaw = 0; G_.papT = 0; });
+  later(120, () => { G_.tele = 'core'; showNotice('The teleporter must be linked again'); });
+}
+function teleFlash() {
+  SFX.power(); tone({ f: 200, f2: 1600, dur: 1.2, type: 'sawtooth', vol: .08, filter: 2500 });
+  const d = $('#dmg'); d.style.background = 'rgba(220,235,255,.95)'; d.style.opacity = 1; setTimeout(() => { d.style.background = ''; }, 260);
+}
 function powerOn() {
   G_.power = true; SFX.power(); showAnnounce('POWER ON', '#ffe28a');
   powerObj.lever.rotation.x = -.9; powerObj.lamp.material.color.set(0x55ff66);
   lights.theater.color.set(0xffe2c0); lights.theater.intensity = 1.0; lights.stage.intensity = 1.6; lights.closetN.intensity = .35;
   for (const k in perkObjs) perkObjs[k].signMat.color.set(0xffffff);
-  pap.g.visible = true; obstacles.push({ x: pap.x, z: pap.z, r: 1.0, pap: true });
+  G_.tele = 'core';
   doorOpen.P = true; doorObjs.P.anim = 1; updateReach(); computeFlow(true);
 }
 
@@ -1071,6 +1133,7 @@ function later(sec, fn) { timers.push({ t: sec, fn }); }
 function updateTimers(dt) { for (let i = timers.length - 1; i >= 0; i--) { const t = timers[i]; t.t -= dt; if (t.t <= 0) { timers.splice(i, 1); t.fn(); } } }
 function addPoints(n, isHit, raw) {
   const v = raw ? n : n * (G_.dbl > 0 ? 2 : 1); P.points += v; hudPoints(v);
+  if (v > 0 && !raw) { G_.earned += v; if (G_.earned > G_.dropAt) { G_.dropInc *= 1.14; G_.dropAt = G_.earned + G_.dropInc; G_.dropReady = true; } }
 }
 function spend(n) { if (P.points < n) { SFX.deny(); return false; } P.points -= n; hudPoints(-n); SFX.buy(); return true; }
 function giveWeapon(w) {
@@ -1138,7 +1201,7 @@ function collide(e, r, passFn) {
 }
 
 // ---------------------------------------------------------------- Zombies
-const zombies = [], zpool = [];
+const zombies = [], zpool = [], dpool = [];
 let hitMeshes = [];
 const ZG = {};
 const ZM = {};
@@ -1172,18 +1235,43 @@ function makeZombieMesh() {
   const [armL, armLm] = mk(ZG.arm, Math.random() < .5 ? skin : cloth, -.33, 1.45), [armR, armRm] = mk(ZG.arm, Math.random() < .5 ? skin : cloth, .33, 1.45);
   const [legL, legLm] = mk(ZG.leg, ZM.pants, -.13, .8), [legR, legRm] = mk(ZG.leg, ZM.pants, .13, .8);
   const meshes = [torso, head, armLm, armRm, legLm, legRm];
+  torso.userData.part = 'torso';
   return { g, torso, head, armL, armR, legL, legR, meshes };
 }
-function zHealth(r) { return r < 10 ? 150 + 100 * (r - 1) : Math.round(950 * Math.pow(1.1, r - 9)); }
-function roundCount(r) { if (r <= 4) return [6, 8, 13, 18][r - 1]; return Math.floor(24 * (1 + (r - 5) * .15)); }
-function spawnZombie(sp) {
-  const m = zpool.pop() || makeZombieMesh();
+// health: +100 a round up to round 9, then +10% a round
+function makeDogMesh() {
+  if (!ZM.dog) { ZM.dog = lam({ color: 0x2a201c, emissive: 0x2a0800 }); ZM.dogEye = new THREE.MeshBasicMaterial({ color: 0xff6a1a }); }
+  const g = new THREE.Group(), mat = ZM.dog;
+  const torso = new THREE.Mesh(new THREE.BoxGeometry(.36, .38, .95), mat); torso.position.y = .62; g.add(torso);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(.28, .28, .42), mat); head.position.set(0, .82, .6); g.add(head);
+  for (const s of [-1, 1]) { const e = new THREE.Mesh(ZG.eye, ZM.dogEye); e.position.set(s * .08, .06, .21); head.add(e);
+    const ear = new THREE.Mesh(new THREE.BoxGeometry(.06, .14, .06), mat); ear.position.set(s * .09, .19, -.08); head.add(ear); }
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(.06, .06, .4), mat); tail.position.set(0, .75, -.6); tail.rotation.x = .5; g.add(tail);
+  const legGeo = new THREE.BoxGeometry(.1, .45, .1); legGeo.translate(0, -.22, 0);
+  const mk = (x, z) => { const p = new THREE.Group(); p.position.set(x, .48, z); const m = new THREE.Mesh(legGeo, mat); p.add(m); g.add(p); return [p, m]; };
+  const [armL, a1] = mk(-.13, .35), [armR, a2] = mk(.13, .35), [legL, l1] = mk(-.13, -.35), [legR, l2] = mk(.13, -.35);
+  const meshes = [torso, head, a1, a2, l1, l2]; torso.userData.part = 'torso';
+  return { g, torso, head, armL, armR, legL, legR, meshes };
+}
+function zHealth(r) { let h = 150; for (let i = 2; i <= r; i++) h = i >= 10 ? h + Math.floor(h * .1) : h + 100; return h; }
+// solo count: 24 plus a little per round, cut down during the first five rounds
+function roundCount(r) {
+  let mult = Math.max(1, r / 5); if (r >= 10) mult *= r * .15;
+  const max = 24 + Math.floor(3 * mult);
+  const frac = r === 1 ? .25 : r < 3 ? .3 : r < 4 ? .5 : r < 5 ? .7 : r < 6 ? .9 : 1;
+  return Math.floor(max * frac);
+}
+function spawnZombie(sp, kind) {
+  const m = kind === 'dog' ? (dpool.pop() || makeDogMesh()) : (zpool.pop() || makeZombieMesh());
   m.g.visible = true; m.head.visible = true; m.g.rotation.set(0, 0, 0); m.g.position.set(sp.x + rand(-.4, .4), 0, sp.z + rand(-.4, .4));
   world.add(m.g);
-  const r = G_.round, runP = clamp((r - 2) * .2, 0, 1), sprintP = clamp((r - 7) * .1, 0, .6);
-  let speed = rand(1.0, 1.3), tier = 0;
-  if (Math.random() < runP) { speed = rand(3.0, 3.6); tier = 1; if (Math.random() < sprintP) { speed = rand(4.3, 4.8); tier = 2; } }
-  const z = { m, x: m.g.position.x, z: m.g.position.z, hp: zHealth(r), speed, tier, phase: rand(0, 6), atkCd: 0, atkWind: 0, tearT: rand(.4, 1), dead: false, deadT: 0, rising: sp.ground ? 1.6 : 0, groanT: rand(1, 5), gx: 0, gy: 0, yaw: 0, flinch: 0, stuckT: 0, ax: 0, az: 0, tearing: false };
+  const r = G_.round;
+  // walk / run / sprint from a roll that slides up 8 points every round
+  const roll = G_.moveSpeed + Math.floor(Math.random() * 35);
+  let tier = roll <= 35 ? 0 : roll <= 70 ? 1 : 2;
+  let speed = [rand(1.0, 1.3), rand(3.0, 3.6), rand(4.3, 4.8)][tier];
+  if (kind === 'dog') { tier = 2; speed = rand(5.6, 6.2); }
+  const z = { m, x: m.g.position.x, z: m.g.position.z, hp: kind === 'dog' ? G_.dogHp : zHealth(r), speed, tier, dog: kind === 'dog', phase: rand(0, 6), atkCd: 0, atkWind: 0, tearT: rand(.4, 1), dead: false, deadT: 0, rising: sp.ground && kind !== 'dog' ? 1.6 : 0, groanT: rand(1, 5), gx: 0, gy: 0, yaw: 0, flinch: 0, stuckT: 0, ax: 0, az: 0, tearing: false };
   m.meshes.forEach(x => x.userData.z = z);
   m.head.userData.head = true;
   zombies.push(z); rebuildHitList();
@@ -1200,10 +1288,13 @@ function chooseSpawn() {
 function killZombie(z, how) {
   if (z.dead) return; z.dead = true; z.deadT = 0; G_.alive--;
   P.kills++; if (how === 'head') P.heads++;
-  if (how !== 'nuke') addPoints(how === 'knife' ? 130 : how === 'head' ? 100 : 60);
-  if (how === 'head') { z.m.head.visible = false; blood(z.x, 1.7, z.z, 14); }
+  if (how !== 'nuke') addPoints(50 + ({ head: 50, torso: 10, knife: 80 }[how] || 0));
+  if (how === 'head' && !z.dog) { z.m.head.visible = false; blood(z.x, 1.7, z.z, 14); }
+  if (z.dog) { dogBurst(z); z.deadT = 2.5; z.m.g.visible = false; }
   rebuildHitList();
-  if (how !== 'nuke' && G_.drops < 4 && Math.random() < .035) spawnPowerup(z.x, z.z);
+  if (z.dog && G_.dogRound && G_.toSpawn <= 0 && G_.alive <= 0) { spawnPowerup(z.x, z.z, 'maxammo', true); return; }
+  // a 3% chance on any kill, or a guaranteed drop each time your earned points pass the next mark
+  if (how !== 'nuke' && G_.drops < 4 && (Math.random() * 100 < 3 || G_.dropReady)) { G_.dropReady = false; spawnPowerup(z.x, z.z); }
 }
 function damageZombie(z, dmg, part, pt) {
   if (z.dead) return false;
@@ -1221,7 +1312,7 @@ function updateZombie(z, dt) {
   if (z.dead) {
     z.deadT += dt; m.g.rotation.x = -Math.min(1, z.deadT * 2.5) * Math.PI / 2;
     if (z.deadT > 1.6) m.g.position.y = -(z.deadT - 1.6) * .8;
-    if (z.deadT > 2.6) { world.remove(m.g); zpool.push(m); zombies.splice(zombies.indexOf(z), 1); }
+    if (z.deadT > 2.6) { world.remove(m.g); (z.dog ? dpool : zpool).push(m); zombies.splice(zombies.indexOf(z), 1); }
     return;
   }
   if (z.rising > 0) {
@@ -1250,7 +1341,7 @@ function updateZombie(z, dt) {
           tx = z.x + (w.spawn.x - z.x) * .0 + (c.x - z.x) * .2; tz = z.z + (c.z - z.z) * .2; speed = .6;
         } else { tx = c.x; tz = c.z; }
       } else { tx = c.x; tz = c.z; }
-    } else if (inside) { tx = P.x; tz = P.z; }
+    } else if (inside && flow[gi(gx, gy)] >= 0) { tx = P.x; tz = P.z; }
   }
   z.tearing = tearing;
   if (dp < .85) tx = null;
@@ -1269,11 +1360,17 @@ function updateZombie(z, dt) {
   if (z.atkWind > 0) { z.atkWind -= dt; if (z.atkWind <= 0 && dp < (inside ? 1.55 : 3.1)) hurtPlayer(z); }
   // stuck detection (respawn zombies that make no progress for a long time)
   if (Math.hypot(z.x - z.ax, z.z - z.az) > 1) { z.ax = z.x; z.az = z.z; z.stuckT = 0; }
-  else if (!tearing && dp > 4) { z.stuckT += dt; if (z.stuckT > 8) { const sp = chooseSpawn(); if (sp) { z.x = sp.x; z.z = sp.z; z.stuckT = 0; } } }
+  else if (!tearing && dp > 4) { z.stuckT += dt; if (z.stuckT > 8 && G_.papT <= 0) { const sp = z.dog ? dogSpawnPoint() : chooseSpawn(); if (sp) { z.x = sp.x; z.z = sp.z; z.stuckT = 0; } } }
   // animation
   m.g.position.x = z.x; m.g.position.z = z.z; m.g.rotation.y = z.yaw; m.g.position.y = ch === 'W' ? .25 : 0;
   z.phase += dt * (tearing ? 6 : 2.2 + speed * 1.6);
   const sw = Math.sin(z.phase);
+  if (z.dog) {
+    m.armL.rotation.x = sw * .9; m.armR.rotation.x = -sw * .9; m.legL.rotation.x = -sw * .9; m.legR.rotation.x = sw * .9;
+    m.head.rotation.x = z.atkWind > 0 ? -.5 : Math.sin(z.phase * 2) * .08; m.torso.rotation.x = Math.sin(z.phase * 2) * .05;
+    z.groanT -= dt; if (z.groanT <= 0) { z.groanT = rand(1.5, 4); const s = spatial(z.x, z.z); if (s.vol > .08) SFX.groan(s.pan, s.vol * .3, 1.9); }
+    return;
+  }
   m.legL.rotation.x = tearing ? 0 : sw * (.35 + speed * .1); m.legR.rotation.x = -m.legL.rotation.x;
   if (z.atkWind > 0) { const t = 1 - z.atkWind / .42; m.armL.rotation.x = m.armR.rotation.x = -2.4 + t * 1.8; }
   else if (tearing) { m.armL.rotation.x = -1.6 + Math.sin(z.phase) * .6; m.armR.rotation.x = -1.6 - Math.sin(z.phase) * .6; }
@@ -1342,9 +1439,10 @@ const PUPS = {
   carpenter: { label: 'CARPENTER!', icon: 'FIX' },
 };
 const pupTex = {};
-function spawnPowerup(x, z) {
-  G_.drops++;
-  const type = pick(['maxammo', 'maxammo', 'insta', 'double', 'double', 'nuke', 'carpenter']);
+function spawnPowerup(x, z, forced, free) {
+  if (!free) G_.drops++;
+  if (!G_.deck || !G_.deck.length) { G_.deck = ['maxammo', 'insta', 'double', 'nuke', 'carpenter']; for (let i = G_.deck.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [G_.deck[i], G_.deck[j]] = [G_.deck[j], G_.deck[i]]; } }
+  const type = forced || G_.deck.pop();
   if (!pupTex[type]) pupTex[type] = texOf(textCanvas(PUPS[type].icon, 128, 128, null, '#b9ffb0', 'bold 44px Oswald, Impact, sans-serif', '#3f3'));
   const g = new THREE.Group(); g.position.set(x, 1.1, z);
   const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: M.glowTex, color: 0x33ff55, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); glow.scale.setScalar(1.8); g.add(glow);
@@ -1359,7 +1457,7 @@ function updatePowerups(dt) {
     if (Math.hypot(P.x - p.x, P.z - p.z) < 1.3 && P.down <= 0) { applyPowerup(p.type); scene.remove(p.g); G_.pupsList.splice(i, 1); continue; }
     if (p.t <= 0) { scene.remove(p.g); G_.pupsList.splice(i, 1); }
   }
-  if (G_.insta > 0) G_.insta -= dt; if (G_.dbl > 0) G_.dbl -= dt;
+  if (G_.insta > 0) G_.insta -= dt; if (G_.dbl > 0) G_.dbl -= dt; if (G_.papT > 0) G_.papT -= dt;
 }
 function applyPowerup(type) {
   SFX.pupGet(); showAnnounce(PUPS[type].label);
@@ -1432,7 +1530,7 @@ function tryFire(trigger) {
     if (hits.length) {
       const h = hits[0], z = h.object.userData.z; end = h.point.clone();
       WEAPONS_HS = s.hs;
-      const killed = damageZombie(z, s.dmg * dmgMul, h.object.userData.head ? 'head' : 'body', h.point);
+      const killed = damageZombie(z, s.dmg * dmgMul, h.object.userData.head ? 'head' : (h.object.userData.part || 'limb'), h.point);
       anyHit = true; anyKill = anyKill || killed;
       if (s.splash) explode(h.point, s.splash.r, s.splash.dmg, s.tracer || 0xffa040);
     } else if (s.splash) explode(end, s.splash.r, s.splash.dmg, s.tracer || 0xffa040);
@@ -1601,23 +1699,70 @@ function hudPups() {
   let h = '';
   if (G_.insta > 0) h += `<div class="pup${G_.insta < 5 ? ' fade' : ''}">INSTA-KILL ${Math.ceil(G_.insta)}</div>`;
   if (G_.dbl > 0) h += `<div class="pup${G_.dbl < 5 ? ' fade' : ''}">DOUBLE POINTS ${Math.ceil(G_.dbl)}</div>`;
+  if (G_.papT > 0) h += `<div class="pup" style="border-color:#b58bff;color:#d6bdff">PROJECTOR ROOM ${Math.ceil(G_.papT)}</div>`;
   if (hud.pups._h !== h) { hud.pups.innerHTML = h; hud.pups._h = h; }
 }
 
 // ---------------------------------------------------------------- Rounds
 function startRound() {
-  G_.round++; G_.toSpawn = roundCount(G_.round); G_.alive = G_.alive || 0; G_.spawnT = 1.5; G_.roundActive = true; G_.drops = 0; G_.repairPts = 0;
-  hudRound(true); SFX.roundStart();
+  G_.round++; G_.alive = G_.alive || 0; G_.spawnT = 1.5; G_.roundActive = true; G_.drops = 0; G_.repairPts = 0;
+  G_.dogRound = G_.round === G_.nextDog;
+  if (G_.dogRound) {
+    G_.dogCount++; G_.nextDog = G_.round + 4 + ((Math.random() * 2) | 0);
+    G_.toSpawn = G_.dogMax = G_.dogCount < 3 ? 6 : 8; G_.dogSpawned = 0; G_.spawnT = 4;
+    G_.dogHp = [400, 900, 1300, 1600][Math.min(G_.dogCount, 4) - 1];
+    setDogFog(true); showAnnounce('HELLHOUND ROUND', '#ff5a3c'); SFX.dogRound();
+  } else { G_.toSpawn = roundCount(G_.round); SFX.roundStart(); }
+  hudRound(true);
+}
+const pendingDogs = [];
+function dogSpawnPoint() {
+  const c = [], far = [];
+  for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) {
+    const k = gi(gx, gy), ch = G[k]; if (!passP(ch) || isDoorCh(ch) || !G_.reach.has(ZONE_CH[ch])) continue;
+    const d = flow[k]; if (d >= 5 && d <= 12) c.push(k); else if (d > 12) far.push(k);
+  }
+  const k = c.length ? pick(c) : far.length ? pick(far) : -1; if (k < 0) return null;
+  return { x: (k % GW + .5) * CELL, z: (((k / GW) | 0) + .5) * CELL };
+}
+function setDogFog(on) { scene.fog.color.set(on ? 0x2a0a06 : 0x0b0909); scene.fog.density = on ? .04 : .028; }
+function dogBurst(z) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: M.glowTex, color: 0xff7a2a, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  s.position.set(z.x, .7, z.z); s.scale.setScalar(2); scene.add(s); blasts.push({ s, t: .3, r: 2 });
+  const sp = spatial(z.x, z.z); noiseHit({ dur: .5, f: 600, f2: 120, type: 'lowpass', vol: .5 * sp.vol, pan: sp.pan });
+}
+function queueDog(sp) {
+  const bolt = new THREE.Sprite(new THREE.SpriteMaterial({ map: M.glowTex, color: 0x9fc4ff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  bolt.position.set(sp.x, 4, sp.z); bolt.scale.set(1.2, 9, 1); scene.add(bolt);
+  pendingDogs.push({ sp, t: 1.5, bolt });
+  const s = spatial(sp.x, sp.z); noiseHit({ dur: 1.4, f: 300, f2: 60, type: 'lowpass', vol: .7 * s.vol + .1, pan: s.pan });
+}
+function updatePendingDogs(dt) {
+  for (let i = pendingDogs.length - 1; i >= 0; i--) {
+    const d = pendingDogs[i]; d.t -= dt; d.bolt.material.opacity = Math.random() < .5 ? 1 : .3;
+    if (d.t <= 0) { scene.remove(d.bolt); d.bolt.material.dispose(); pendingDogs.splice(i, 1); spawnZombie(d.sp, 'dog'); }
+  }
 }
 function updateRound(dt) {
   if (G_.roundActive) {
     G_.spawnT -= dt;
     const maxAlive = settings.quality === 'low' ? 20 : 24;
-    if (G_.toSpawn > 0 && G_.spawnT <= 0 && G_.alive < maxAlive) {
+    if (G_.dogRound) {
+      updatePendingDogs(dt);
+      if (G_.toSpawn > 0 && G_.spawnT <= 0) {
+        const sp = dogSpawnPoint();
+        if (sp) { queueDog(sp); G_.toSpawn--; G_.alive++; G_.dogSpawned++; G_.spawnT = Math.max(.5, [3, 2.5, 2, 1.5][Math.min(G_.dogCount, 4) - 1] - G_.dogSpawned / G_.dogMax); }
+        else G_.spawnT = 1;
+      }
+    } else if (G_.toSpawn > 0 && G_.spawnT <= 0 && G_.alive < maxAlive) {
       const sp = chooseSpawn(); if (sp) { spawnZombie(sp); G_.toSpawn--; G_.alive++; }
-      G_.spawnT = Math.max(.35, 2.2 * Math.pow(.95, G_.round));
+      G_.spawnT = Math.max(.08, G_.spawnDelay);
     }
-    if (G_.toSpawn <= 0 && G_.alive <= 0) { G_.roundActive = false; G_.betweenT = 9; SFX.roundEnd(); }
+    if (G_.toSpawn <= 0 && G_.alive <= 0) {
+      G_.roundActive = false; G_.betweenT = 10; SFX.roundEnd();
+      if (G_.dogRound) { G_.dogRound = false; setDogFog(false); }
+      G_.spawnDelay = Math.max(.08, G_.spawnDelay * .95); G_.moveSpeed = G_.round * 8;
+    }
   } else if (G_.betweenT > 0) { G_.betweenT -= dt; if (G_.betweenT <= 0) startRound(); }
 }
 
@@ -1705,17 +1850,20 @@ function updateWorldFx(dt) {
 
 // ---------------------------------------------------------------- Game flow
 function resetGame() {
-  for (const z of zombies) { world.remove(z.m.g); zpool.push(z.m); } zombies.length = 0; hitMeshes = [];
+  for (const z of zombies) { world.remove(z.m.g); (z.dog ? dpool : zpool).push(z.m); } zombies.length = 0; hitMeshes = [];
   for (const p of G_.pupsList) scene.remove(p.g); G_.pupsList.length = 0;
   timers.length = 0;
-  Object.assign(G_, { time: 0, round: 0, power: false, toSpawn: 0, spawnT: 0, betweenT: 2.5, roundActive: false, alive: 0, drops: 0, insta: 0, dbl: 0, repairPts: 0 });
+  Object.assign(G_, { time: 0, round: 0, power: false, toSpawn: 0, spawnT: 0, betweenT: 2.5, roundActive: false, alive: 0, drops: 0, insta: 0, dbl: 0, repairPts: 0,
+    spawnDelay: 2, moveSpeed: 1, earned: 0, dropAt: 2500, dropInc: 2000, dropReady: false, deck: null,
+    tele: 'off', papT: 0, dogRound: false, dogCount: 0, nextDog: 5 + ((Math.random() * 3) | 0), dogHp: 400, dogMax: 0, dogSpawned: 0 });
+  for (const d of pendingDogs) scene.remove(d.bolt); pendingDogs.length = 0; setDogFog(false);
+  tele.padMat.color.set(0x551111); tele.coreLamp.material.color.set(0x551111);
   for (const id in doorObjs) { doorOpen[id] = false; const d = doorObjs[id]; d.mesh.visible = true; d.anim = 0; d.mesh.position.y = 0; d.mesh.rotation.z = 0; }
   for (const w of windows) { w.boards = w.maxBoards; updateBoards(w); }
-  for (let i = obstacles.length - 1; i >= 0; i--) if (obstacles[i].pap) obstacles.splice(i, 1);
-  pap.g.visible = false; powerObj.lever.rotation.x = .9; powerObj.lamp.material.color.set(0x551111);
+  powerObj.lever.rotation.x = .9; powerObj.lamp.material.color.set(0x551111);
   lights.theater.color.set(0xff3a2a); lights.theater.intensity = .45; lights.stage.intensity = 0; lights.closetN.intensity = .2;
   for (const k in perkObjs) perkObjs[k].signMat.color.set(PERKS[k].needsPower ? 0x333333 : 0xffffff);
-  clearDisp(); box.g.visible = true; box.state = 'idle'; box.uses = 0; placeBox(0);
+  clearDisp(); box.g.visible = true; box.state = 'idle'; box.uses = 0; box.moves = 0; placeBox(0);
   Object.assign(P, { x: SPAWN.x, z: SPAWN.z, yaw: 0, pitch: 0, hp: 100, maxHp: 100, points: 500, weapons: [newWeapon('m1911')], cur: 0, qrUses: 0, reload: 0, fireCd: 0, ads: 0, swap: 0, knife: 0, busy: 0, down: 0, kills: 0, heads: 0, kick: 0, lastHit: 99 });
   P.perks = new Set();
   updateReach(); computeFlow(true);
@@ -1788,8 +1936,10 @@ const PANELS = {
     return `<h2>How to survive</h2>
       <ul>
         <li>Zombies tear the boards off windows. Stand inside and hold Use to rebuild them for points.</li>
-        <li>Every hit pays 10 points. Kills pay 60, headshots 100, knife kills 130.</li>
-        <li>The power switch is backstage. It opens the theater doors and wakes Juggernog, Speed Cola, Double Tap and the Pack-a-Punch.</li>
+        <li>Every hit pays 10 points. A kill pays 50, plus 10 for a body shot or 50 for a headshot. Knife kills pay 130.</li>
+        <li>The power switch is backstage. It opens the theater doors and wakes Juggernog, Speed Cola and Double Tap.</li>
+        <li>With the power on, activate the mainframe on the stage, then link the pad in the lobby. The teleporter sends you to the projector room and its Pack-a-Punch for 30 seconds.</li>
+        <li>Every few rounds the hellhounds come instead of zombies. The last one drops a Max Ammo.</li>
         <li>The Mystery Box costs 950. When the teddy bear shows up, it moves.</li>
         <li>Quick Revive works without power and gets you back up up to three times.</li>
       </ul>
@@ -1868,6 +2018,8 @@ const TIPS = [
   'Aim for the head. Headshot kills are worth 100 points.',
   'The knife is your best friend in the first two rounds.',
   'Turn on the power backstage to wake the perk machines.',
+  'Link the mainframe on stage to the lobby pad to reach Pack-a-Punch.',
+  'When the fog turns red, the hellhounds are coming.',
   'Juggernog lets you take five hits instead of two.',
   'When the teddy bear appears, the Mystery Box moves somewhere else.',
   'Max Ammo refills every weapon you carry.'

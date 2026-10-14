@@ -14,13 +14,21 @@ Three.js from cdnjs.
   alley on either side, and the theater and stage in the middle. Doors cost 750 or 1000 points. The
   theater's main doors open when you turn on the power backstage.
 - Barricaded windows that zombies tear down. Hold Use inside to rebuild them for points.
-- Rounds with rising zombie health and count. Walkers early, runners and sprinters later.
-- Points: 10 per hit, 60 per kill, 100 per headshot kill, 130 per knife kill.
-- Wall buys (M14, Olympia, MP40, MP5K, AK74u), the Mystery Box (950, with the teddy bear move), and
-  Pack-a-Punch on the stage (5000, after power).
+- Rounds follow the original rules: zombie health (+100 a round, then +10% from round 10), the solo
+  zombie count, a spawn delay that shortens 5% each round, and walkers turning into runners and
+  sprinters as the rounds climb.
+- Points: 10 per hit; a kill pays 50 plus 10 for the body or 50 for the head; knife kills pay 130.
+  Rebuilding barriers pays up to 50 × the round number (max 500) per round.
+- Hellhound rounds every 4 to 5 rounds, starting on round 5, 6 or 7. The last hound drops a Max Ammo.
+- Wall buys (M14, Olympia, MP40, MP5K, AK74u) and the Mystery Box (950). The teddy bear can't show up
+  in the first 4 uses; after that the odds rise the more the box is used.
+- Kino's teleporter: with the power on, activate the mainframe on the stage and link the pad in the
+  lobby. It sends you to the projector room, where Pack-a-Punch is (5000), for 30 seconds. Then it
+  has to be linked again.
 - Perks: Quick Revive (works without power in solo, up to 3 self-revives), Juggernog, Speed Cola,
   Double Tap.
-- Power-ups: Max Ammo, Insta-Kill, Double Points, Kaboom (nuke), Carpenter.
+- Power-ups: Max Ammo, Insta-Kill, Double Points, Kaboom (nuke), Carpenter. They drop on a 3% chance
+  per kill, plus a guaranteed drop each time your earned points pass a rising mark (max 4 a round).
 
 ## Controls
 
@@ -34,5 +42,7 @@ Three.js from cdnjs.
 
 ## Not in yet
 
-Kino's teleporter linking (Pack-a-Punch is simply on the stage once the power is on), dog rounds,
-crawlers, the fire traps and co-op.
+Nova crawlers, the fire traps, the balcony and dining areas, and co-op.
+
+The round rules above were worked out by reading Black Ops 1's game scripts for how the mechanics
+behave. All code here is written from scratch; no game code or assets are included.
