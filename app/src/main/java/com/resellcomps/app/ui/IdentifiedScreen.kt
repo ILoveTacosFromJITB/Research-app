@@ -111,10 +111,17 @@ fun IdentifiedScreen(
             ) { Text("eBay Sold", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            SoldSearchLinks.forQuery(q).drop(1).forEach { (name, url) ->
-                OutlinedButton(onClick = { open(context, url) }, enabled = q.isNotEmpty(), modifier = Modifier.weight(1f)) {
-                    Text(name, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+        // Terapeak on its own row (eBay's official sold research), then the other marketplaces.
+        val others = SoldSearchLinks.forQuery(q).drop(1)
+        listOf(others.take(1), others.drop(1)).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                row.forEach { (name, url) ->
+                    OutlinedButton(onClick = { open(context, url) }, enabled = q.isNotEmpty(), modifier = Modifier.weight(1f)) {
+                        Text(
+                            if (name == "Terapeak") "Terapeak sold research (eBay)" else name,
+                            style = MaterialTheme.typography.labelMedium, maxLines = 1,
+                        )
+                    }
                 }
             }
         }

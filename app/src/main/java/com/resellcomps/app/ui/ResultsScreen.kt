@@ -191,15 +191,15 @@ private fun SoldLinks(query: String) {
     val context = LocalContext.current
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text("Check sold listings yourself", style = MaterialTheme.typography.labelLarge)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            SoldSearchLinks.forQuery(query).forEach { (name, url) ->
+        SoldSearchLinks.forQuery(query).chunked(2).forEach { pair -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            pair.forEach { (name, url) ->
                 OutlinedButton(
                     onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) },
                     modifier = Modifier.weight(1f),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 8.dp),
                 ) { Text(name, style = MaterialTheme.typography.labelMedium, maxLines = 1) }
             }
-        }
+        } }
     }
 }
 

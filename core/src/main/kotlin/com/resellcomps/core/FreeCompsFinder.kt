@@ -5,13 +5,11 @@ import java.util.concurrent.Executors
 
 /**
  * Free-mode lookup: eBay's free Browse API for active listings (by keywords,
- * barcode and photo) and, if enabled, sold prices read from eBay's sold-search
- * page on the phone. A plain title check stands in for the AI match check.
+ * barcode and photo). Sold prices are left to eBay's own pages (eBay Sold,
+ * Terapeak). A plain title check stands in for the AI match check.
  */
 class FreeCompsFinder(
     private val ebay: EbayBrowseApi?,
-    /** Loads eBay's sold page for a query and returns its sold listings; null when turned off. */
-    private val soldPageReader: ((String) -> List<Listing>)?,
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
     fun findComps(photos: List<ByteArray>, item: ItemIdentification, query: String, onProgress: (String) -> Unit = {}): CompsReport {
@@ -31,15 +29,9 @@ class FreeCompsFinder(
             byText?.let { f -> runCatching { f.get() }.onSuccess { all += it }.onFailure { notes += "eBay search failed: ${rootMessage(it)}" } }
             byImage.forEach { f -> runCatching { f.get() }.onSuccess { all += it }.onFailure { notes += "eBay photo search failed: ${rootMessage(it)}" } }
 
-            val reader = soldPageReader
-            if (reader != null) {
-                onProgress("Reading eBay sold listings…")
-                runCatching { reader(query) }
-                    .onSuccess { all += it }
-                    .onFailure { notes += "Couldn't read eBay's sold page (${rootMessage(it)}). This is not the same as zero sales — use the sold-search buttons to check." }
-            } else {
-                notes += "Sold prices aren't fetched in free mode. Use the sold-search buttons to see real sold listings, or turn on automatic sold prices in Settings."
-            }
+            // eBay's free API has no sold data, and reading eBay's pages would break its terms;
+            // sold prices are one tap away on eBay / Terapeak instead.
+            notes += "Sold prices come from eBay itself: tap eBay Sold or Terapeak to see real sold listings."
 
             val checked = TitleMatcher.check(CompsFinder.dedupe(all), query, exactUrls)
             return CompsReport(
@@ -49,7 +41,7 @@ class FreeCompsFinder(
                 checked = checked,
                 notes = notes,
                 retrievedAtEpochMs = clock(),
-                soldSearched = reader != null,
+                soldSearched = false,
             )
         } finally {
             pool.shutdownNow()

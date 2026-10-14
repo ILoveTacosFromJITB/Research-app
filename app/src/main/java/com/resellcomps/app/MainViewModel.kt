@@ -56,7 +56,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun freeFinder() = FreeCompsFinder(
         ebay = ebayApi(),
-        soldPageReader = if (settings.readSoldPage) SoldPageReader(getApplication())::read else null,
     )
 
     /** Built-in Lens: where these photos appear on the web. Null when no key is set; errors become a note. */

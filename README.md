@@ -40,9 +40,8 @@ budget alert to stay in the free tier.
   and anything without a barcode.
 - **Active listings:** eBay's free official Browse API (needs free developer keys, see below).
 - **Sold listings:** one-tap **sold-search buttons** for eBay, Poshmark and Mercari open the real sold
-  results. Optionally, **"Read eBay sold prices automatically"** (experimental, off by default) loads
-  eBay's sold page on the phone and reads the prices so the app can give a sold value. It can break
-  when eBay changes its site, and eBay's terms don't allow automated reading.
+  results, plus **Terapeak** (eBay Seller Hub → Research), eBay's official sold-price research, free
+  for sellers. The app never reads eBay's web pages itself, which eBay's terms don't allow.
 - **Match check:** plain rules. Every model number and most words of your search must be in the
   title, and lots, bundles, parts-only and box-only listings are excluded (shown in *Excluded*).
 

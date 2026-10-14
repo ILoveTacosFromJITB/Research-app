@@ -157,7 +157,6 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
     var mode by remember { mutableStateOf(st.mode) }
     var ebayId by remember { mutableStateOf(st.ebayClientId) }
     var ebaySecret by remember { mutableStateOf(st.ebayClientSecret) }
-    var readSold by remember { mutableStateOf(st.readSoldPage) }
     var visionKey by remember { mutableStateOf(st.googleVisionKey) }
     var geminiKey by remember { mutableStateOf(st.geminiKey) }
     var freeAiKey by remember { mutableStateOf(st.freeAiKey) }
@@ -260,17 +259,6 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
                 visualTransformation = PasswordVisualTransformation(), singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Read eBay sold prices automatically", style = MaterialTheme.typography.bodyLarge)
-                    Text(
-                        "Experimental. Loads eBay's sold-search page on your phone and reads the prices. " +
-                            "Can stop working whenever eBay changes its site, and eBay's terms don't allow automated reading.",
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                Switch(checked = readSold, onCheckedChange = { readSold = it })
-            }
         } else {
             Text("Pro mode", style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(
@@ -303,7 +291,6 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
                 st.mode = mode
                 st.ebayClientId = ebayId
                 st.ebayClientSecret = ebaySecret
-                st.readSoldPage = readSold
                 st.googleVisionKey = visionKey
                 st.geminiKey = geminiKey
                 st.freeAiKey = freeAiKey

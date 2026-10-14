@@ -40,10 +40,6 @@ class Settings(context: Context) {
         get() = str("google_vision_key")
         set(v) = put("google_vision_key", v)
 
-    var readSoldPage: Boolean
-        get() = prefs.getBoolean("read_sold_page", false)
-        set(v) = prefs.edit().putBoolean("read_sold_page", v).apply()
-
     // Pro mode
     var anthropicKey: String
         get() = str("anthropic_key")

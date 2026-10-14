@@ -40,32 +40,12 @@ class FreeModeTest {
         assertTrue(TitleMatcher.check(listOf(x), "sony wh-1000xm4", setOf(x.url))[0].isMatch)
     }
 
-    // ------------------------------------------------------- eBay sold page
+    // ----------------------------------------------------------- sold links
 
-    @Test fun parsesSoldRowsAndSkipsJunk() {
-        val js = """{"blocked":false,"rows":[
-          {"title":"New ListingSony WH-1000XM4 Black","url":"https://www.ebay.com/itm/Sony-WH/256123456789?hash=x","price":"$129.99","sold":"Sold Sep 30, 2026","condition":"Pre-Owned","img":"https://i.ebayimg.com/1.jpg"},
-          {"title":"Shop on eBay","url":"https://www.ebay.com/itm/123456789012","price":"$20.00"},
-          {"title":"Sony WH-1000XM4 variants","url":"https://www.ebay.com/itm/256000000001","price":"$90.00 to $140.00"},
-          {"title":"Sony WH-1000XM4 UK","url":"https://www.ebay.com/itm/256000000002","price":"GBP 99.00"}
-        ]}"""
-        val out = EbaySoldPage.parse(js)
-        assertEquals(1, out.size)
-        assertEquals("Sony WH-1000XM4 Black", out[0].title)
-        assertEquals("https://www.ebay.com/itm/256123456789", out[0].url)
-        assertEquals(129.99, out[0].price)
-        assertEquals(ListingStatus.SOLD, out[0].status)
-        assertEquals("Sold Sep 30, 2026", out[0].soldDate)
-    }
-
-    @Test fun blockedPageIsAnErrorNotZeroComps() {
-        assertFailsWith<EbaySoldPage.PageUnreadable> { EbaySoldPage.parse("""{"blocked":true,"rows":[]}""") }
-    }
-
-    @Test fun parseUsd() {
-        assertEquals(1234.5, EbaySoldPage.parseUsd("$1,234.50"))
-        assertNull(EbaySoldPage.parseUsd("$1.00 to $2.00"))
-        assertNull(EbaySoldPage.parseUsd("C $5.00"))
+    @Test fun terapeakOpensSoldResearchForTheQuery() {
+        val url = SoldSearchLinks.terapeak("vintage hanes beefy")
+        assertTrue(url.startsWith("https://www.ebay.com/sh/research?"))
+        assertTrue(url.contains("keywords=vintage+hanes+beefy") && url.contains("tabName=SOLD"))
     }
 
     // ------------------------------------------------------ Browse API parse

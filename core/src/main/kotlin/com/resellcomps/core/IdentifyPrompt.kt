@@ -15,6 +15,9 @@ object IdentifyPrompt {
         titles: stylized or partly hidden lettering should still be read as the real name. Read
         any visible labels, tags or model numbers. Do not invent a brand or model you have no
         evidence for; leave it null and lower your confidence instead. Never estimate a price.
+        In details, date the item when the evidence allows (for example "1990s: single-stitch hem,
+        made in USA tag") and name any feature that makes it more desirable (rare colorway, early
+        tag, limited edition); say what the dating is based on.
         search_query is exactly what an experienced reseller would type into eBay's search box:
         brand first, then the product line, tag name or model number, then at most one or two
         key descriptors. For movies, games, music and books use the title plus the format. Keep it short, usually 2-5 words, all
