@@ -13,8 +13,9 @@
 //         Cost            TextMeshProUGUI "950"
 //   EventSystem           with the input module for the project's input backend
 //
-// The button is anchored bottom-right, inside the right thumb's natural arc and above where
-// a fire button would sit. Move it in the Scene view if your layout differs.
+// The interact button sits center-right, inside the right thumb's reach but clear of the
+// Fire/Aim/Reload/Knife cluster in the corner. Move it in the Scene view if your layout differs.
+// Player + touch controls: see PlayerSetupMenu.cs.
 
 #if UNITY_EDITOR // Belt and braces: a phone build won't break even if this file leaves the Editor folder.
 using TMPro;
@@ -28,7 +29,7 @@ namespace ZombiesPort.EditorTools
     public static class MobileHudMenu
     {
         /// <summary>Finds the scene's HUD Canvas and its SafeArea panel, creating them if missing.</summary>
-        static Transform GetOrCreateSafeArea()
+        internal static Transform GetOrCreateSafeArea()
         {
             var existing = Object.FindFirstObjectByType<MobileHudCanvas>();
             if (existing != null)
@@ -58,19 +59,22 @@ namespace ZombiesPort.EditorTools
             return safe.transform;
         }
 
+        /// <summary>Center-right, clear of the Fire/Aim/Reload/Knife cluster in the bottom-right corner.</summary>
+        internal static readonly Vector2 InteractButtonPosition = new Vector2(-560f, 440f);
+
         [MenuItem("GameObject/Zombies/Mobile HUD (Interact Button)", false, 10)]
         static void CreateMobileHud()
         {
             var safe = GetOrCreateSafeArea();
 
-            // Interact button: bottom-right, 260x260 canvas units (about 2.4 cm on a typical phone).
+            // Interact button: 260x260 canvas units (about 2.4 cm on a typical phone), anchored to the bottom-right corner.
             var buttonGo = NewChild("InteractButton", safe);
             Undo.RegisterCreatedObjectUndo(buttonGo, "Create Interact Button");
             var br = buttonGo.GetComponent<RectTransform>();
             br.anchorMin = br.anchorMax = new Vector2(1f, 0f);
             br.pivot = new Vector2(1f, 0f);
             br.sizeDelta = new Vector2(260f, 260f);
-            br.anchoredPosition = new Vector2(-340f, 300f);
+            br.anchoredPosition = InteractButtonPosition;
 
             var image = buttonGo.AddComponent<Image>();
             image.color = new Color(0f, 0f, 0f, 0.55f);
@@ -202,7 +206,7 @@ namespace ZombiesPort.EditorTools
             return prefab.GetComponent<ZombieAgent>();
         }
 
-        static Image NewImage(string name, Transform parent, Vector2 anchor, Vector2 position)
+        internal static Image NewImage(string name, Transform parent, Vector2 anchor, Vector2 position)
         {
             var go = NewChild(name, parent);
             var r = go.GetComponent<RectTransform>();
@@ -217,7 +221,7 @@ namespace ZombiesPort.EditorTools
             return img;
         }
 
-        static GameObject NewChild(string name, Transform parent)
+        internal static GameObject NewChild(string name, Transform parent)
         {
             var go = new GameObject(name, typeof(RectTransform));
             go.layer = parent.gameObject.layer;
@@ -225,7 +229,7 @@ namespace ZombiesPort.EditorTools
             return go;
         }
 
-        static TextMeshProUGUI NewText(string name, Transform parent, string text, float size, float yMin, float yMax)
+        internal static TextMeshProUGUI NewText(string name, Transform parent, string text, float size, float yMin, float yMax)
         {
             var go = NewChild(name, parent);
             var r = go.GetComponent<RectTransform>();
