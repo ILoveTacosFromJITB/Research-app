@@ -44,4 +44,14 @@ class FreeVisionAiTest {
         val body = """{"choices":[{"message":{"content":"I can't tell what this is."}}]}"""
         assertFailsWith<IOException> { FreeVisionAi.parseAnswer(body) }
     }
+
+    @Test fun readsHowLongToWaitFromGroqErrors() {
+        val perMinute = """{"error":{"message":"Rate limit reached for model `x` on tokens per minute (TPM): Limit 6000, Used 5900, Requested 1800. Please try again in 16.95s."}}"""
+        assertEquals(16.95, FreeVisionAi.retryAfterSeconds(null, perMinute))
+        assertEquals(63.2, FreeVisionAi.retryAfterSeconds(null, "Please try again in 1m3.2s."))
+        assertEquals(7 * 3600.0 + 12 * 60, FreeVisionAi.retryAfterSeconds(null, "requests per day (RPD) ... Please try again in 7h12m."))
+        assertEquals(0.25, FreeVisionAi.retryAfterSeconds(null, "Please try again in 250ms."))
+        assertEquals(9.0, FreeVisionAi.retryAfterSeconds("9", "anything"))
+        assertNull(FreeVisionAi.retryAfterSeconds(null, "slow down"))
+    }
 }

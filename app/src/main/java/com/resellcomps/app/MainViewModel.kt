@@ -141,7 +141,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 if (settings.mode == Mode.FREE && settings.freeAiKey.isNotBlank()) {
                     // Free AI (Groq or OpenRouter, detected from the key).
                     withContext(Dispatchers.IO) {
-                        FreeVisionAi(settings.freeAiKey).identify(photos, hint)
+                        FreeVisionAi(settings.freeAiKey)
+                            .identify(photos.map { Images.shrink(it) }, hint) { secs ->
+                                _screen.value = Screen.Busy("Free AI limit reached for this minute — continuing in ${secs}s…")
+                            }
                             .copy(visualMatches = lens(photos).first?.matches.orEmpty())
                     }
                 } else if (settings.mode == Mode.FREE && settings.geminiKey.isNotBlank()) {

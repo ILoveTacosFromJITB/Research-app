@@ -39,4 +39,20 @@ object Images {
             out.toByteArray()
         }
     }
+
+    /**
+     * A smaller copy for free AI tiers, whose per-minute limits count image size: 1024 px is
+     * still plenty to read tags and labels, and uses far fewer of the free tokens.
+     */
+    fun shrink(jpeg: ByteArray, maxEdge: Int = 1024): ByteArray {
+        val bitmap = BitmapFactory.decodeByteArray(jpeg, 0, jpeg.size) ?: return jpeg
+        val longEdge = max(bitmap.width, bitmap.height)
+        if (longEdge <= maxEdge) return jpeg
+        val scale = maxEdge.toFloat() / longEdge
+        val small = Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true)
+        return ByteArrayOutputStream().use { out ->
+            small.compress(Bitmap.CompressFormat.JPEG, 80, out)
+            out.toByteArray()
+        }
+    }
 }

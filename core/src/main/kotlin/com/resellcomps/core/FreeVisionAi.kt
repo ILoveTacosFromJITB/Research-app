@@ -37,10 +37,15 @@ class FreeVisionAi(
     val provider: Provider = detect(apiKey)
         ?: throw IOException("That key isn't a Groq key (starts with gsk_) or an OpenRouter key (starts with sk-or-).")
 
-    fun identify(photos: List<ByteArray>, hint: String? = null): ItemIdentification {
+    /**
+     * @param onWait called with the seconds the app is pausing when the provider's
+     *   per-minute free limit is hit, so the screen can say so instead of failing.
+     */
+    fun identify(photos: List<ByteArray>, hint: String? = null, onWait: (Int) -> Unit = {}): ItemIdentification {
         val candidates = when (provider) {
             Provider.GROQ -> listOfNotNull(workingGroqModel) +
-                rankGroqModels(get("${provider.baseUrl}/models")).filter { it != workingGroqModel }
+                (rankedGroqModels ?: rankGroqModels(get("${provider.baseUrl}/models")).also { rankedGroqModels = it })
+                    .filter { it != workingGroqModel }
             Provider.OPENROUTER -> listOf(OPENROUTER_FREE)
         }
         if (candidates.isEmpty()) throw IOException("No AI model on your ${provider.label} account can read photos right now.")
@@ -49,24 +54,46 @@ class FreeVisionAi(
         // order and remember the first that accepts the photo.
         for (model in candidates.take(MAX_TRIES)) {
             try {
-                val result = try {
-                    chat(model, photos, hint)
-                } catch (e: java.io.InterruptedIOException) {
-                    chat(model, photos, hint) // one retry on a slow reply
-                }
+                val result = chatWaitingOutLimits(model, photos, hint, onWait)
                 if (provider == Provider.GROQ) workingGroqModel = model
                 return result
             } catch (e: ModelUnusable) {
                 if (model == workingGroqModel) workingGroqModel = null
                 last = e
             } catch (e: LimitException) {
-                last = e
+                // A long wait means the daily limit; other models share it, so stop here.
+                throw e
             }
         }
         throw last ?: IOException("${provider.label} didn't answer.")
     }
 
-    private class LimitException(msg: String) : IOException(msg)
+    /**
+     * Free tiers also cap requests and tokens per minute, and photos use a lot of tokens, so a
+     * second scan right after the first can be refused for a few seconds. Wait that out (up to
+     * [MAX_WAIT_SECONDS] at a time, twice) rather than failing.
+     */
+    private fun chatWaitingOutLimits(model: String, photos: List<ByteArray>, hint: String?, onWait: (Int) -> Unit): ItemIdentification {
+        var waits = 0
+        while (true) {
+            try {
+                return try {
+                    chat(model, photos, hint)
+                } catch (e: java.io.InterruptedIOException) {
+                    chat(model, photos, hint) // one retry on a slow reply
+                }
+            } catch (e: LimitException) {
+                val wait = e.waitSeconds
+                if (wait == null || wait > MAX_WAIT_SECONDS || waits >= 2) throw e
+                waits++
+                val secs = kotlin.math.ceil(wait).toInt().coerceAtLeast(1)
+                onWait(secs)
+                Thread.sleep(secs * 1000L + 500)
+            }
+        }
+    }
+
+    private class LimitException(msg: String, val waitSeconds: Double?) : IOException(msg)
 
     /** The model is gone, or it can't take images: try the next one. */
     private class ModelUnusable(msg: String) : IOException(msg)
@@ -75,7 +102,7 @@ class FreeVisionAi(
         val body = buildJsonObject {
             put("model", model)
             put("temperature", 0.2)
-            put("max_tokens", 800)
+            put("max_tokens", 600)
             putJsonArray("messages") {
                 addJsonObject {
                     put("role", "system")
@@ -114,9 +141,17 @@ class FreeVisionAi(
             when {
                 resp.isSuccessful -> return text
                 resp.code == 401 -> throw IOException("${provider.label} rejected your key. Check it in Settings.")
-                resp.code == 429 -> throw LimitException(
-                    "${provider.label}'s free limit is used up for now. Try again in a minute, or tomorrow for the daily limit."
-                )
+                resp.code == 429 -> {
+                    val wait = retryAfterSeconds(resp.header("retry-after"), text)
+                    throw LimitException(
+                        if (wait != null && wait > MAX_WAIT_SECONDS) {
+                            "${provider.label}'s free daily limit is used up. It resets in about ${formatWait(wait)}."
+                        } else {
+                            "${provider.label}'s free limit is used up for now. Try again in a minute."
+                        },
+                        wait,
+                    )
+                }
                 resp.code == 402 -> throw IOException("${provider.label} says this account needs credit for that request.")
                 resp.code == 400 || resp.code == 404 || resp.code == 422 -> throw ModelUnusable(
                     "${provider.label} has no model that can read photos for this account right now (${errorMessage(text)}). " +
@@ -137,6 +172,29 @@ class FreeVisionAi(
         @Volatile private var workingGroqModel: String? = null
 
         private const val MAX_TRIES = 4
+
+        /** Longest pause the app makes by itself for a per-minute limit. */
+        const val MAX_WAIT_SECONDS = 45.0
+
+        @Volatile private var rankedGroqModels: List<String>? = null
+
+        /**
+         * How long the provider asks us to wait: the Retry-After header, or Groq's
+         * "Please try again in 12.5s" / "in 1m3.2s" / "in 7h12m" wording.
+         */
+        fun retryAfterSeconds(header: String?, body: String): Double? {
+            header?.trim()?.toDoubleOrNull()?.let { return it }
+            val m = Regex("""try again in\s+(?:(\d+)h)?(?:(\d+)m(?!s))?(?:([\d.]+)s)?(?:([\d.]+)ms)?""").find(body) ?: return null
+            val (h, min, sec, ms) = m.destructured
+            if (h.isEmpty() && min.isEmpty() && sec.isEmpty() && ms.isEmpty()) return null
+            return (h.toDoubleOrNull() ?: 0.0) * 3600 + (min.toDoubleOrNull() ?: 0.0) * 60 +
+                (sec.toDoubleOrNull() ?: 0.0) + (ms.toDoubleOrNull() ?: 0.0) / 1000
+        }
+
+        private fun formatWait(seconds: Double): String {
+            val mins = (seconds / 60).toInt()
+            return if (mins >= 60) "${mins / 60} h ${mins % 60} min" else "${mins.coerceAtLeast(1)} min"
+        }
 
         private val JSON_INSTRUCTIONS = """
             Reply with only a JSON object, no other text, with these keys:
