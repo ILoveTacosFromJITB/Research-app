@@ -105,6 +105,8 @@ fun IdentifiedScreen(
             }
         }
 
+        if (!textMode && item.vintage != null) VintageCard(item)
+
         if (!textMode && (!item.identified || q.isEmpty())) {
             Text(
                 "Couldn't read enough from the photo. Add a close-up of the tag or label, or type the search below.",
@@ -214,6 +216,25 @@ fun IdentifiedScreen(
                         Text("Confidence: ${item.confidence}", style = MaterialTheme.typography.labelMedium)
                     }
                 }
+            }
+        }
+    }
+}
+
+/** The AI's vintage call, up front: yes (with era and clues), no, or unsure (add a tag photo). */
+@Composable
+private fun VintageCard(item: ItemIdentification) {
+    val (title, color) = when (item.vintage) {
+        "yes" -> ("Vintage: Yes" + (item.era?.let { ", $it" } ?: "")) to MaterialTheme.colorScheme.primaryContainer
+        "no" -> ("Vintage: No" + (item.era?.let { " ($it)" } ?: "")) to MaterialTheme.colorScheme.surfaceVariant
+        else -> "Vintage: Unsure" to MaterialTheme.colorScheme.tertiaryContainer
+    }
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = color)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            item.vintageClues?.let { Text("Based on: $it", style = MaterialTheme.typography.bodyMedium) }
+            if (item.vintage == "unsure") {
+                Text("Add a clear photo of the tag (and the hem stitching) to settle it.", style = MaterialTheme.typography.bodySmall)
             }
         }
     }

@@ -102,7 +102,7 @@ class FreeVisionAi(
         val body = buildJsonObject {
             put("model", model)
             put("temperature", 0.2)
-            put("max_tokens", 600)
+            put("max_tokens", 700)
             putJsonArray("messages") {
                 addJsonObject {
                     put("role", "system")
@@ -199,7 +199,8 @@ class FreeVisionAi(
         private val JSON_INSTRUCTIONS = """
             Reply with only a JSON object, no other text, with these keys:
             "identified" (true/false), "name", "brand" (or null), "model" (or null), "category",
-            "details", "search_query", "confidence" ("high", "medium" or "low").
+            "details", "search_query", "confidence" ("high", "medium" or "low"),
+            "vintage" ("yes", "no" or "unsure"), "era" (or null), "vintage_clues" (or null).
         """.trimIndent()
 
         fun detect(key: String): Provider? = when {

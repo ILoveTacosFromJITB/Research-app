@@ -54,4 +54,15 @@ class FreeVisionAiTest {
         assertEquals(9.0, FreeVisionAi.retryAfterSeconds("9", "anything"))
         assertNull(FreeVisionAi.retryAfterSeconds(null, "slow down"))
     }
+
+    @Test fun readsVintageCall() {
+        val content = """{"identified":true,"name":"Hanes Beefy tee","brand":"Hanes","model":null,"category":"Clothing",
+            "details":"","search_query":"vintage hanes beefy","confidence":"high","vintage":"Yes","era":"1990s",
+            "vintage_clues":["single-stitch hem","made in USA tag"]}"""
+        val body = """{"choices":[{"message":{"content":${JsonPrimitive(content)}}}]}"""
+        val id = FreeVisionAi.parseAnswer(body)
+        assertEquals("yes", id.vintage)
+        assertEquals("1990s", id.era)
+        assertEquals("single-stitch hem, made in USA tag", id.vintageClues)
+    }
 }

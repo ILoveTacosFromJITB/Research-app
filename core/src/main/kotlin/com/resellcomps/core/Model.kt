@@ -12,6 +12,12 @@ data class ItemIdentification(
     val identified: Boolean,
     /** UPC/EAN read from a barcode in the photo, if any. */
     val gtin: String? = null,
+    /** "yes", "no" or "unsure" — the AI's call on whether the item is vintage. */
+    val vintage: String? = null,
+    /** Decade or year range, e.g. "1990s". */
+    val era: String? = null,
+    /** What the vintage call is based on, e.g. "single-stitch hem, made in USA tag". */
+    val vintageClues: String? = null,
     /** Shown prominently when the name came from a weak source. */
     val warning: String? = null,
 )
