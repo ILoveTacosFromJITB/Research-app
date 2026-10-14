@@ -5,8 +5,11 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 
-/** The identify instructions and answer format, shared by every AI that names items (Claude, Gemini). */
+/** The identify instructions and answer format, shared by every AI that names items . */
 object IdentifyPrompt {
+    /** Most photos of one item the app keeps (front, back, tag, label, barcode…). */
+    const val MAX_PHOTOS = 6
+
     val SYSTEM = """
         You identify secondhand items from photos for a reseller who will look up comparable
         sold listings. Be as specific as the photo allows: brand, product line, model name or

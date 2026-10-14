@@ -8,7 +8,7 @@ object EbaySoldPage {
         "https://www.ebay.com/sch/i.html?_nkw=${URLEncoder.encode(query, "UTF-8")}&LH_Sold=1&LH_Complete=1"
 }
 
-/** One-tap sold searches on other sites, so the user can see the proof there. */
+/** One-tap searches that open eBay (and other marketplaces) with the search filled in. */
 object SoldSearchLinks {
     /** eBay's normal search: what's listed right now. */
     fun ebayActive(query: String): String =

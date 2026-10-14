@@ -4,8 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -21,13 +19,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
@@ -42,11 +37,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.resellcomps.app.MainViewModel
-import com.resellcomps.app.Mode
 import com.resellcomps.app.Screen
 
 private val Green = Color(0xFF2E7D32)
@@ -61,28 +54,18 @@ fun App(vm: MainViewModel) {
         val screen by vm.screen.collectAsState()
         val photos by vm.photos.collectAsState()
         var showSettings by rememberSaveable { mutableStateOf(!vm.settings.seenSettings) }
+        val canGoBack = showSettings || screen !is Screen.Home || photos.isNotEmpty()
+        val goBack = { if (showSettings) showSettings = false else vm.reset() }
 
-        BackHandler(enabled = showSettings || screen !is Screen.Home || photos.isNotEmpty()) {
-            when {
-                showSettings -> showSettings = false
-                screen is Screen.Results -> vm.editSearch()
-                else -> vm.reset()
-            }
-        }
+        BackHandler(enabled = canGoBack) { goBack() }
 
         Scaffold(
             topBar = {
                 TopAppBar(
                     title = { Text(if (showSettings) "Settings" else "Resell Comps") },
                     navigationIcon = {
-                        if (showSettings || screen !is Screen.Home || photos.isNotEmpty()) {
-                            IconButton(onClick = {
-                                when {
-                                    showSettings -> showSettings = false
-                                    screen is Screen.Results -> vm.editSearch()
-                                    else -> vm.reset()
-                                }
-                            }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                        if (canGoBack) {
+                            IconButton(onClick = goBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
                         }
                     },
                     actions = {
@@ -99,19 +82,18 @@ fun App(vm: MainViewModel) {
             when {
                 showSettings -> SettingsScreen(vm, modifier) { showSettings = false }
                 else -> when (val s = screen) {
-                    Screen.Home -> HomeScreen(vm, photos, modifier, onNeedKeys = { showSettings = true })
+                    Screen.Home -> HomeScreen(vm, photos, modifier)
                     is Screen.Busy -> BusyScreen(s.message, modifier)
                     is Screen.Identified -> IdentifiedScreen(
                         s.item, photos, modifier,
-                        onSearch = vm::search, onRetake = vm::reset,
+                        onRetake = vm::reset,
                         onAddPhoto = vm::backToPhotos,
                         onOpenSettings = { showSettings = true },
                     )
-                    is Screen.Results -> ResultsScreen(s.report, modifier, onEditSearch = vm::editSearch, onNewItem = vm::reset)
                     is Screen.Failed -> FailedScreen(
                         s, modifier,
                         onRetry = if (s.canRetryIdentify) vm::retryIdentify else null,
-                        onBack = { if (s.canRetrySearch) vm.editSearch() else vm.reset() },
+                        onBack = vm::reset,
                     )
                 }
             }
@@ -125,12 +107,6 @@ private fun BusyScreen(message: String, modifier: Modifier) {
         CircularProgressIndicator()
         Spacer(Modifier.height(16.dp))
         Text(message, style = MaterialTheme.typography.bodyLarge)
-        Spacer(Modifier.height(8.dp))
-        Text(
-            "Searching listings can take a minute.",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -146,7 +122,7 @@ private fun FailedScreen(s: Screen.Failed, modifier: Modifier, onRetry: (() -> U
             Spacer(Modifier.height(8.dp))
             OutlinedButton(onClick = onBack) { Text("Start over") }
         } else {
-            Button(onClick = onBack) { Text(if (s.canRetrySearch) "Back to search" else "Start over") }
+            Button(onClick = onBack) { Text("Start over") }
         }
     }
 }
@@ -154,169 +130,39 @@ private fun FailedScreen(s: Screen.Failed, modifier: Modifier, onRetry: (() -> U
 @Composable
 private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> Unit) {
     val st = vm.settings
-    var mode by remember { mutableStateOf(st.mode) }
-    var ebayId by remember { mutableStateOf(st.ebayClientId) }
-    var ebaySecret by remember { mutableStateOf(st.ebayClientSecret) }
-    var visionKey by remember { mutableStateOf(st.googleVisionKey) }
-    var geminiKey by remember { mutableStateOf(st.geminiKey) }
     var freeAiKey by remember { mutableStateOf(st.freeAiKey) }
-    var anthropic by remember { mutableStateOf(st.anthropicKey) }
-    var serp by remember { mutableStateOf(st.serpApiKey) }
-    var model by remember { mutableStateOf(st.model) }
 
     Column(
         modifier.verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Mode", style = MaterialTheme.typography.titleMedium)
-        ModeOption(
-            selected = mode == Mode.FREE, onClick = { mode = Mode.FREE },
-            title = "Free",
-            body = "Reads barcodes and label text on your phone, finds eBay listings with eBay's free API, " +
-                "and gives one-tap sold searches. No cost.",
-        )
-        ModeOption(
-            selected = mode == Mode.PRO, onClick = { mode = Mode.PRO },
-            title = "Pro (paid APIs)",
-            body = "AI identifies anything from your photos, pulls eBay sold data and searches the whole web. " +
-                "Costs a few cents per scan on your own API accounts.",
-        )
-
-        HorizontalDivider()
-        if (mode == Mode.FREE) {
-            Text("Free mode", style = MaterialTheme.typography.titleMedium)
-            Text("Free AI identification (recommended)", style = MaterialTheme.typography.bodyLarge)
-            Text(
-                "Recognizes what's in your photos and writes the search for you. Paste ONE free key, no card needed:\n" +
-                    "• Groq (about 1,000 scans/day): console.groq.com → API Keys → Create API Key\n" +
-                    "• OpenRouter (about 50 scans/day): openrouter.ai → Keys → Create Key\n" +
-                    "The app recognizes which one it is.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            OutlinedTextField(
-                value = freeAiKey, onValueChange = { freeAiKey = it },
-                label = { Text("Groq or OpenRouter key") }, singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            HorizontalDivider()
-            Text("Gemini (Google, optional)", style = MaterialTheme.typography.bodyLarge)
-            Text(
-                "Recognizes what's in your photos and writes the search for you. Free key, no card: " +
-                    "aistudio.google.com → Get API key → Create API key. The free tier has daily limits, and " +
-                    "Google may use free-tier requests to improve its products.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            OutlinedTextField(
-                value = geminiKey, onValueChange = { geminiKey = it },
-                label = { Text("Gemini API key") }, singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            HorizontalDivider()
-            Text("Built-in visual search (like Google Lens)", style = MaterialTheme.typography.bodyLarge)
-            Text(
-                "Finds the same item on the web from your photo, names it, then searches sold and active " +
-                    "listings automatically. Uses Google Cloud Vision: 1,000 free lookups a month (about 500 scans). " +
-                    "Get a key at console.cloud.google.com → enable \"Cloud Vision API\" → Credentials → Create API key. " +
-                    "Google asks for a card on file; set a budget alert to stay free.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            OutlinedTextField(
-                value = visionKey, onValueChange = { visionKey = it },
-                label = { Text("Google Cloud Vision API key") }, singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                "Optional but recommended: free eBay developer keys turn on active listings and eBay photo search. " +
-                    "Sign up at developer.ebay.com, create a Production keyset, and paste the App ID (Client ID) " +
-                    "and Cert ID (Client Secret).",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            OutlinedTextField(
-                value = ebayId, onValueChange = { ebayId = it },
-                label = { Text("eBay App ID (Client ID)") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = ebaySecret, onValueChange = { ebaySecret = it },
-                label = { Text("eBay Cert ID (Client Secret)") }, singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text("Claude naming (optional, paid)", style = MaterialTheme.typography.bodyLarge)
-            Text(
-                "Add an Anthropic key and the app reads tags, logos and model numbers like you would and writes " +
-                    "the search for you (e.g. \"vintage hanes beefy\", \"bose 700\"). Uses Claude's cheapest model, " +
-                    "roughly a tenth of a cent per scan.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-            OutlinedTextField(
-                value = anthropic, onValueChange = { anthropic = it },
-                label = { Text("Anthropic API key") },
-                supportingText = { Text("console.anthropic.com → API Keys") },
-                visualTransformation = PasswordVisualTransformation(), singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        } else {
-            Text("Pro mode", style = MaterialTheme.typography.titleMedium)
-            OutlinedTextField(
-                value = anthropic, onValueChange = { anthropic = it },
-                label = { Text("Anthropic API key (required)") },
-                supportingText = { Text("Identifies the item and searches the web. console.anthropic.com") },
-                visualTransformation = PasswordVisualTransformation(), singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = serp, onValueChange = { serp = it },
-                label = { Text("SerpApi key (recommended)") },
-                supportingText = { Text("eBay SOLD and active listings straight from eBay. serpapi.com") },
-                visualTransformation = PasswordVisualTransformation(), singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            OutlinedTextField(
-                value = model, onValueChange = { model = it },
-                label = { Text("Claude model") },
-                supportingText = { Text("claude-sonnet-5-5 costs about half as much") },
-                singleLine = true, modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        Text("Free AI identification", style = MaterialTheme.typography.titleMedium)
         Text(
-            "Keys are stored only on this phone and sent only to their own service.",
+            "Recognizes what's in your photos and writes the search for you. Paste ONE free key, no card needed:\n" +
+                "• Groq: console.groq.com → API Keys → Create API Key\n" +
+                "• OpenRouter: openrouter.ai → Keys → Create Key\n" +
+                "The app recognizes which one it is. Without a key, it can only read barcodes and printed text.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        OutlinedTextField(
+            value = freeAiKey, onValueChange = { freeAiKey = it },
+            label = { Text("Groq or OpenRouter key") }, singleLine = true,
+            visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text(
+            "The key is stored only on this phone and sent only to that service. " +
+                "This app is not connected to your eBay account; its buttons just open eBay's own pages.",
             style = MaterialTheme.typography.bodySmall,
         )
         Button(
             onClick = {
-                st.mode = mode
-                st.ebayClientId = ebayId
-                st.ebayClientSecret = ebaySecret
-                st.googleVisionKey = visionKey
-                st.geminiKey = geminiKey
                 st.freeAiKey = freeAiKey
-                st.anthropicKey = anthropic
-                st.serpApiKey = serp
-                st.model = model
                 st.seenSettings = true
                 onDone()
             },
-            enabled = mode == Mode.FREE || anthropic.isNotBlank(),
             modifier = Modifier.fillMaxWidth(),
         ) { Text("Save") }
         OutlinedButton(onClick = { st.seenSettings = true; onDone() }, modifier = Modifier.fillMaxWidth()) { Text("Cancel") }
-    }
-}
-
-@Composable
-private fun ModeOption(selected: Boolean, onClick: () -> Unit, title: String, body: String) {
-    Row(
-        Modifier.fillMaxWidth().selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
-        verticalAlignment = Alignment.Top,
-    ) {
-        RadioButton(selected = selected, onClick = null)
-        Column(Modifier.padding(start = 8.dp)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
-            Text(body, style = MaterialTheme.typography.bodySmall)
-        }
     }
 }

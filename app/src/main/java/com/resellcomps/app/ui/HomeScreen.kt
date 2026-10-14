@@ -47,20 +47,20 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.resellcomps.app.MainViewModel
-import com.resellcomps.core.ClaudeService
+import com.resellcomps.core.IdentifyPrompt
 import java.io.File
 
 @Composable
-fun HomeScreen(vm: MainViewModel, photos: List<ByteArray>, modifier: Modifier, onNeedKeys: () -> Unit) {
+fun HomeScreen(vm: MainViewModel, photos: List<ByteArray>, modifier: Modifier) {
     val context = LocalContext.current
     var pendingUri by rememberSaveable { mutableStateOf<Uri?>(null) }
-    val room = ClaudeService.MAX_PHOTOS - photos.size
+    val room = IdentifyPrompt.MAX_PHOTOS - photos.size
 
     val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
         if (ok) pendingUri?.let { vm.addPhotos(listOf(it)) }
     }
     val pickPhotos = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickMultipleVisualMedia(ClaudeService.MAX_PHOTOS)
+        ActivityResultContracts.PickMultipleVisualMedia(IdentifyPrompt.MAX_PHOTOS)
     ) { uris -> vm.addPhotos(uris) }
 
     Column(
@@ -70,15 +70,14 @@ fun HomeScreen(vm: MainViewModel, photos: List<ByteArray>, modifier: Modifier, o
         if (photos.isEmpty()) {
             Text("What's it worth?", style = MaterialTheme.typography.headlineSmall)
             Text(
-                "Take a few photos of the item: the front, the back, and close-ups of any brand tag, " +
-                    "label, model number or barcode. More angles = a more accurate match. " +
-                    "Prices only come from real listings, and every price links to its listing.",
+                "Take a photo (add the tag or label for a better match) and the app writes the search for you. " +
+                    "Then tap eBay Active or eBay Sold to see real listings.",
                 style = MaterialTheme.typography.bodyMedium,
             )
         } else {
             PhotoStrip(photos, onRemove = vm::removePhoto)
             Text(
-                "${photos.size} of ${ClaudeService.MAX_PHOTOS} photos. Add the tag, label or barcode if you haven't.",
+                "${photos.size} of ${IdentifyPrompt.MAX_PHOTOS} photos. Add the tag, label or barcode if you haven't.",
                 style = MaterialTheme.typography.bodySmall,
             )
         }
@@ -117,7 +116,7 @@ fun HomeScreen(vm: MainViewModel, photos: List<ByteArray>, modifier: Modifier, o
 
         if (photos.isNotEmpty()) {
             Button(
-                onClick = { if (vm.hasKeys) vm.identify("") else onNeedKeys() },
+                onClick = { vm.identify("") },
                 modifier = Modifier.fillMaxWidth(),
             ) { Text("Identify again with these photos") }
         }

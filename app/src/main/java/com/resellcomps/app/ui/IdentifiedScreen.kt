@@ -50,7 +50,6 @@ fun IdentifiedScreen(
     item: ItemIdentification,
     photos: List<ByteArray>,
     modifier: Modifier,
-    onSearch: (ItemIdentification, String) -> Unit,
     onRetake: () -> Unit,
     onAddPhoto: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -131,11 +130,6 @@ fun IdentifiedScreen(
             OutlinedButton(onClick = onRetake, modifier = Modifier.weight(1f)) { Text("New item") }
         }
 
-        OutlinedButton(
-            onClick = { onSearch(item, q) },
-            enabled = q.isNotEmpty(),
-            modifier = Modifier.fillMaxWidth(),
-        ) { Text("Show prices in the app") }
 
         if (!textMode) {
 
@@ -158,10 +152,6 @@ fun IdentifiedScreen(
                         if (item.details.isNotBlank()) Text(item.details, style = MaterialTheme.typography.bodySmall)
                         Text("Confidence: ${item.confidence}", style = MaterialTheme.typography.labelMedium)
                     }
-                }
-                if (item.visualMatches.isNotEmpty()) {
-                    Text("Same photo found on the web", style = MaterialTheme.typography.titleSmall)
-                    item.visualMatches.take(6).forEach { VisualMatchCard(it) }
                 }
             }
         }
