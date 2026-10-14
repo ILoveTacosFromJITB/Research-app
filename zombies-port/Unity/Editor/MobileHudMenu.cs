@@ -1,7 +1,10 @@
 // MobileHudMenu.cs  (editor only: must stay in a folder named "Editor")
 //
-// GameObject > Zombies > Mobile HUD (Interact Button)
-// Builds the complete, correctly configured touch HUD in one click:
+// One-click scene setup:
+//   GameObject > Zombies > Mobile HUD (Interact Button)
+//   GameObject > Zombies > Round HUD (Chalk + Points)
+//   GameObject > Zombies > Round System (Pool + Test Zombie)
+// The HUD items share one HUD Canvas: the second one reuses the canvas the first created.
 //
 //   HUD Canvas            MobileHudCanvas (Overlay, Scale With Screen Size 1920x1080, match height)
 //     SafeArea            SafeAreaFitter
@@ -17,19 +20,31 @@
 using TMPro;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.UI;
 
 namespace ZombiesPort.EditorTools
 {
     public static class MobileHudMenu
     {
-        [MenuItem("GameObject/Zombies/Mobile HUD (Interact Button)", false, 10)]
-        static void CreateMobileHud()
+        /// <summary>Finds the scene's HUD Canvas and its SafeArea panel, creating them if missing.</summary>
+        static Transform GetOrCreateSafeArea()
         {
-            // HUD Canvas
-            var canvasGo = new GameObject("HUD Canvas", typeof(RectTransform), typeof(MobileHudCanvas));
-            Undo.RegisterCreatedObjectUndo(canvasGo, "Create Mobile HUD");
-            canvasGo.layer = LayerMask.NameToLayer("UI");
+            var existing = Object.FindFirstObjectByType<MobileHudCanvas>();
+            if (existing != null)
+            {
+                var fitter = existing.GetComponentInChildren<SafeAreaFitter>(true);
+                if (fitter != null) return fitter.transform;
+            }
+
+            var canvasGo = existing != null
+                ? existing.gameObject
+                : new GameObject("HUD Canvas", typeof(RectTransform), typeof(MobileHudCanvas));
+            if (existing == null)
+            {
+                Undo.RegisterCreatedObjectUndo(canvasGo, "Create HUD Canvas");
+                canvasGo.layer = LayerMask.NameToLayer("UI");
+            }
 
             // SafeArea panel: stretches to the full screen, then SafeAreaFitter trims it.
             var safe = NewChild("SafeArea", canvasGo.transform);
@@ -39,8 +54,18 @@ namespace ZombiesPort.EditorTools
             safeRect.offsetMin = safeRect.offsetMax = Vector2.zero;
             safe.AddComponent<SafeAreaFitter>();
 
+            MobileHudCanvas.EnsureEventSystem();
+            return safe.transform;
+        }
+
+        [MenuItem("GameObject/Zombies/Mobile HUD (Interact Button)", false, 10)]
+        static void CreateMobileHud()
+        {
+            var safe = GetOrCreateSafeArea();
+
             // Interact button: bottom-right, 260x260 canvas units (about 2.4 cm on a typical phone).
-            var buttonGo = NewChild("InteractButton", safe.transform);
+            var buttonGo = NewChild("InteractButton", safe);
+            Undo.RegisterCreatedObjectUndo(buttonGo, "Create Interact Button");
             var br = buttonGo.GetComponent<RectTransform>();
             br.anchorMin = br.anchorMax = new Vector2(1f, 0f);
             br.pivot = new Vector2(1f, 0f);
@@ -72,9 +97,124 @@ namespace ZombiesPort.EditorTools
             so.FindProperty("costText").objectReferenceValue = cost;
             so.ApplyModifiedPropertiesWithoutUndo();
 
-            MobileHudCanvas.EnsureEventSystem();
-
             Selection.activeGameObject = buttonGo;
+        }
+
+        [MenuItem("GameObject/Zombies/Round HUD (Chalk + Points)", false, 11)]
+        static void CreateRoundHud()
+        {
+            var safe = GetOrCreateSafeArea();
+
+            // Full-screen panel with its own Canvas (RequireComponent on RoundHud adds it).
+            var hudGo = NewChild("RoundHud", safe);
+            Undo.RegisterCreatedObjectUndo(hudGo, "Create Round HUD");
+            var hr = hudGo.GetComponent<RectTransform>();
+            hr.anchorMin = Vector2.zero;
+            hr.anchorMax = Vector2.one;
+            hr.offsetMin = hr.offsetMax = Vector2.zero;
+
+            // Chalk counter, top-left (bottom-left is the movement stick's corner on mobile).
+            var tally1 = NewImage("Tally1", hudGo.transform, new Vector2(0f, 1f), new Vector2(40f, -40f));
+            var tally2 = NewImage("Tally2", hudGo.transform, new Vector2(0f, 1f), new Vector2(180f, -40f));
+            var number = NewText("RoundNumber", hudGo.transform, "1", 110, 0f, 1f);
+            var nr = number.rectTransform;
+            nr.anchorMin = nr.anchorMax = new Vector2(0f, 1f);
+            nr.pivot = new Vector2(0f, 1f);
+            nr.sizeDelta = new Vector2(280f, 140f);
+            nr.anchoredPosition = new Vector2(40f, -30f);
+            number.alignment = TextAlignmentOptions.Left;
+
+            // Points, top-right.
+            var points = NewText("Points", hudGo.transform, "500", 64, 0f, 1f);
+            var pr = points.rectTransform;
+            pr.anchorMin = pr.anchorMax = new Vector2(1f, 1f);
+            pr.pivot = new Vector2(1f, 1f);
+            pr.sizeDelta = new Vector2(360f, 90f);
+            pr.anchoredPosition = new Vector2(-40f, -40f);
+            points.alignment = TextAlignmentOptions.Right;
+
+            var hud = hudGo.AddComponent<RoundHud>();
+            hudGo.GetComponent<Canvas>().overrideSorting = false;
+
+            var so = new SerializedObject(hud);
+            so.FindProperty("tally1").objectReferenceValue = tally1;
+            so.FindProperty("tally2").objectReferenceValue = tally2;
+            so.FindProperty("roundNumber").objectReferenceValue = number;
+            so.FindProperty("points").objectReferenceValue = points;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            Selection.activeGameObject = hudGo;
+        }
+
+        /// <summary>
+        /// GameBootstrap (if missing), a "Round System" object with RoundDirector + ZombiePool,
+        /// one spawn point, and a capsule test zombie saved as a prefab so the pool works
+        /// right away. Swap the prefab for your real zombie later.
+        /// </summary>
+        [MenuItem("GameObject/Zombies/Round System (Pool + Test Zombie)", false, 12)]
+        static void CreateRoundSystem()
+        {
+            if (Object.FindFirstObjectByType<GameBootstrap>() == null)
+            {
+                var boot = new GameObject("GameBootstrap", typeof(GameBootstrap));
+                Undo.RegisterCreatedObjectUndo(boot, "Create GameBootstrap");
+            }
+
+            var root = new GameObject("Round System");
+            Undo.RegisterCreatedObjectUndo(root, "Create Round System");
+            var pool = root.AddComponent<ZombiePool>();
+            var director = root.AddComponent<RoundDirector>();
+
+            var spawn = new GameObject("ZombieSpawnPoint", typeof(ZombieSpawnPoint));
+            spawn.transform.SetParent(root.transform, false);
+            spawn.transform.localPosition = new Vector3(0f, 0f, 10f);
+
+            var so = new SerializedObject(pool);
+            so.FindProperty("prefab").objectReferenceValue = GetOrCreateTestZombie();
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            var dso = new SerializedObject(director);
+            dso.FindProperty("pool").objectReferenceValue = pool;
+            dso.ApplyModifiedPropertiesWithoutUndo();
+
+            Selection.activeGameObject = root;
+            Debug.Log("Round System created. Bake a NavMesh, put a ZombiePlayer in the scene, " +
+                      "move the spawn point somewhere walkable, then press Play.");
+        }
+
+        const string TestZombiePath = "Assets/ZombieTestCapsule.prefab";
+
+        static ZombieAgent GetOrCreateTestZombie()
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<ZombieAgent>(TestZombiePath);
+            if (existing != null) return existing;
+
+            var go = GameObject.CreatePrimitive(PrimitiveType.Capsule); // Comes with a CapsuleCollider.
+            go.name = "ZombieTestCapsule";
+            var nav = go.AddComponent<NavMeshAgent>();
+            nav.radius = 0.35f;
+            nav.height = 1.8f;
+            nav.baseOffset = 1f; // The capsule's pivot is at its center.
+            go.AddComponent<ZombieAgent>();
+
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, TestZombiePath);
+            Object.DestroyImmediate(go);
+            return prefab.GetComponent<ZombieAgent>();
+        }
+
+        static Image NewImage(string name, Transform parent, Vector2 anchor, Vector2 position)
+        {
+            var go = NewChild(name, parent);
+            var r = go.GetComponent<RectTransform>();
+            r.anchorMin = r.anchorMax = anchor;
+            r.pivot = anchor;
+            r.sizeDelta = new Vector2(128f, 128f);
+            r.anchoredPosition = position;
+            var img = go.AddComponent<Image>();
+            img.raycastTarget = false;
+            img.preserveAspect = true;
+            img.enabled = false; // RoundHud turns it on once tally sprites are assigned.
+            return img;
         }
 
         static GameObject NewChild(string name, Transform parent)
