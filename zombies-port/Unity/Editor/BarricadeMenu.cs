@@ -22,7 +22,7 @@ namespace ZombiesPort.EditorTools
         const int IgnoreRaycastLayer = 2;
 
         [MenuItem("GameObject/Zombies/Window Barricade", false, 16)]
-        static void CreateWindow()
+        internal static void CreateWindow()
         {
             PlaceInFrontOfView(6f, out Vector3 pos, out Quaternion facingCamera);
             // Forward points INTO the building, i.e. toward the camera.
@@ -96,7 +96,7 @@ namespace ZombiesPort.EditorTools
         }
 
         [MenuItem("GameObject/Zombies/Wall Buys (M14, Olympia, MP40)", false, 17)]
-        static void CreateWallBuys()
+        internal static void CreateWallBuys()
         {
             PlaceInFrontOfView(4f, out Vector3 pos, out Quaternion facingCamera);
             Vector3 right = facingCamera * Vector3.right;
@@ -227,10 +227,8 @@ namespace ZombiesPort.EditorTools
         {
             position = Vector3.zero;
             facingCamera = Quaternion.identity;
-            var view = SceneView.lastActiveSceneView;
-            if (view == null) return;
-            Vector3 fwd = Vector3.ProjectOnPlane(view.rotation * Vector3.forward, Vector3.up).normalized;
-            position = view.camera.transform.position + fwd * distance;
+            if (!EditorPlacement.TryGet(out var viewer, out var fwd, out _)) return;
+            position = viewer + fwd * distance;
             position.y = 0f;
             facingCamera = Quaternion.LookRotation(-fwd, Vector3.up);
         }

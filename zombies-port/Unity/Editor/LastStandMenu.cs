@@ -19,7 +19,7 @@ namespace ZombiesPort.EditorTools
     public static class LastStandMenu
     {
         [MenuItem("GameObject/Zombies/Last Stand + Game Over", false, 14)]
-        static void CreateLastStand()
+        internal static void CreateLastStand()
         {
             // ---- PlayerHealth on every player ----
             var players = Object.FindObjectsByType<ZombiePlayer>(FindObjectsSortMode.None);

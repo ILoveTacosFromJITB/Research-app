@@ -16,7 +16,7 @@ namespace ZombiesPort.EditorTools
     public static class PowerUpMenu
     {
         [MenuItem("GameObject/Zombies/Power-Ups", false, 19)]
-        static void CreatePowerUps()
+        internal static void CreatePowerUps()
         {
             // ---- Director ----
             var director = Object.FindFirstObjectByType<PowerUpDirector>();

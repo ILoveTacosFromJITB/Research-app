@@ -63,7 +63,7 @@ namespace ZombiesPort.EditorTools
         internal static readonly Vector2 InteractButtonPosition = new Vector2(-560f, 440f);
 
         [MenuItem("GameObject/Zombies/Mobile HUD (Interact Button)", false, 10)]
-        static void CreateMobileHud()
+        internal static void CreateMobileHud()
         {
             var safe = GetOrCreateSafeArea();
 
@@ -106,7 +106,7 @@ namespace ZombiesPort.EditorTools
         }
 
         [MenuItem("GameObject/Zombies/Round HUD (Chalk + Points)", false, 11)]
-        static void CreateRoundHud()
+        internal static void CreateRoundHud()
         {
             var safe = GetOrCreateSafeArea();
 
@@ -157,7 +157,7 @@ namespace ZombiesPort.EditorTools
         /// right away. Swap the prefab for your real zombie later.
         /// </summary>
         [MenuItem("GameObject/Zombies/Round System (Pool + Test Zombie)", false, 12)]
-        static void CreateRoundSystem()
+        internal static void CreateRoundSystem()
         {
             if (Object.FindFirstObjectByType<GameBootstrap>() == null)
             {

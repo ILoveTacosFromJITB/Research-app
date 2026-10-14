@@ -32,7 +32,7 @@ namespace ZombiesPort.EditorTools
         const string M1911Path = "Assets/Weapons/M1911.asset";
 
         [MenuItem("GameObject/Zombies/Player + Touch Controls (M1911)", false, 13)]
-        static void CreatePlayerAndControls()
+        internal static void CreatePlayerAndControls()
         {
             if (Object.FindFirstObjectByType<ZombiePlayer>() != null)
                 Debug.LogWarning("A ZombiePlayer already exists in this scene. A new player was created; " +

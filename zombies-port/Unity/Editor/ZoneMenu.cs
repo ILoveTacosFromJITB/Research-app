@@ -25,15 +25,13 @@ namespace ZombiesPort.EditorTools
         const string StartZone = "start_zone";
 
         [MenuItem("GameObject/Zombies/Zones + Buyable Door", false, 18)]
-        static void CreateZonesAndDoor()
+        internal static void CreateZonesAndDoor()
         {
             Vector3 origin = Vector3.zero, fwd = Vector3.forward;
-            var view = SceneView.lastActiveSceneView;
-            if (view != null)
+            if (EditorPlacement.TryGet(out _, out var viewFwd, out var pivot))
             {
-                fwd = Vector3.ProjectOnPlane(view.rotation * Vector3.forward, Vector3.up).normalized;
-                origin = view.pivot;
-                origin.y = 0f;
+                fwd = viewFwd;
+                origin = pivot;
             }
             Quaternion facing = Quaternion.LookRotation(fwd, Vector3.up);
 

@@ -18,7 +18,7 @@ namespace ZombiesPort.EditorTools
     public static class PerkMenu
     {
         [MenuItem("GameObject/Zombies/Perk Machines (Quick Revive + Juggernog)", false, 15)]
-        static void CreatePerkMachines()
+        internal static void CreatePerkMachines()
         {
             foreach (var p in Object.FindObjectsByType<ZombiePlayer>(FindObjectsSortMode.None))
                 if (p.GetComponent<PlayerPerks>() == null) Undo.AddComponent<PlayerPerks>(p.gameObject);
@@ -26,12 +26,10 @@ namespace ZombiesPort.EditorTools
             // Place things a few meters in front of the Scene view camera, on the ground plane.
             Vector3 origin = Vector3.zero;
             Vector3 right = Vector3.right;
-            var view = SceneView.lastActiveSceneView;
-            if (view != null)
+            if (EditorPlacement.TryGet(out _, out var fwd, out var pivot))
             {
-                origin = view.pivot;
-                origin.y = 0f;
-                right = Vector3.ProjectOnPlane(view.rotation * Vector3.right, Vector3.up).normalized;
+                origin = pivot;
+                right = Vector3.Cross(Vector3.up, fwd).normalized;
             }
 
             var revive = Machine("Perk Machine - Quick Revive", PerkId.QuickRevive, "QUICK REVIVE", origin - right * 2f);
