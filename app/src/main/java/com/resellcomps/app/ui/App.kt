@@ -108,7 +108,11 @@ fun App(vm: MainViewModel) {
                         onOpenSettings = { showSettings = true },
                     )
                     is Screen.Results -> ResultsScreen(s.report, modifier, onEditSearch = vm::editSearch, onNewItem = vm::reset)
-                    is Screen.Failed -> FailedScreen(s, modifier, onBack = { if (s.canRetrySearch) vm.editSearch() else vm.reset() })
+                    is Screen.Failed -> FailedScreen(
+                        s, modifier,
+                        onRetry = if (s.canRetryIdentify) vm::retryIdentify else null,
+                        onBack = { if (s.canRetrySearch) vm.editSearch() else vm.reset() },
+                    )
                 }
             }
         }
@@ -131,13 +135,19 @@ private fun BusyScreen(message: String, modifier: Modifier) {
 }
 
 @Composable
-private fun FailedScreen(s: Screen.Failed, modifier: Modifier, onBack: () -> Unit) {
+private fun FailedScreen(s: Screen.Failed, modifier: Modifier, onRetry: (() -> Unit)?, onBack: () -> Unit) {
     Column(modifier.padding(24.dp), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
         Text("Something went wrong", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(8.dp))
         Text(s.message)
         Spacer(Modifier.height(16.dp))
-        Button(onClick = onBack) { Text(if (s.canRetrySearch) "Back to search" else "Start over") }
+        if (onRetry != null) {
+            Button(onClick = onRetry) { Text("Try again") }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = onBack) { Text("Start over") }
+        } else {
+            Button(onClick = onBack) { Text(if (s.canRetrySearch) "Back to search" else "Start over") }
+        }
     }
 }
 

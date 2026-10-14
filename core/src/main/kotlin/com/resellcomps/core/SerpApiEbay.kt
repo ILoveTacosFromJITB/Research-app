@@ -11,7 +11,6 @@ import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
-import java.util.concurrent.TimeUnit
 
 /**
  * eBay sold and active listings through SerpApi's eBay engine
@@ -20,9 +19,7 @@ import java.util.concurrent.TimeUnit
  */
 class SerpApiEbay(
     private val apiKey: String,
-    private val http: OkHttpClient = OkHttpClient.Builder()
-        .callTimeout(60, TimeUnit.SECONDS)
-        .build(),
+    private val http: OkHttpClient = Http.client,
 ) {
 
     fun search(query: String, status: ListingStatus, limit: Int = 50): List<Listing> {

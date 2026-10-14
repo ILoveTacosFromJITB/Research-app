@@ -19,7 +19,6 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.net.URI
 import java.util.Base64
-import java.util.concurrent.TimeUnit
 
 /** A web page that shows the same (or nearly the same) image, like a Google Lens result. */
 data class VisualMatch(val title: String, val url: String, val site: String, val isMarketplace: Boolean)
@@ -32,7 +31,7 @@ data class VisualMatch(val title: String, val url: String, val site: String, val
  */
 class GoogleVision(
     private val apiKey: String,
-    private val http: OkHttpClient = OkHttpClient.Builder().callTimeout(60, TimeUnit.SECONDS).build(),
+    private val http: OkHttpClient = Http.client,
 ) {
     data class Result(
         val bestGuesses: List<String>,

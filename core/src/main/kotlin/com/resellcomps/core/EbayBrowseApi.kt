@@ -18,7 +18,6 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.util.Base64
-import java.util.concurrent.TimeUnit
 
 /**
  * eBay's official Browse API (https://developer.ebay.com/api-docs/buy/browse/overview.html).
@@ -28,7 +27,7 @@ import java.util.concurrent.TimeUnit
 class EbayBrowseApi(
     private val clientId: String,
     private val clientSecret: String,
-    private val http: OkHttpClient = OkHttpClient.Builder().callTimeout(60, TimeUnit.SECONDS).build(),
+    private val http: OkHttpClient = Http.client,
 ) {
     /** Keyword and/or barcode search. Fixed-price listings only, since an auction's current bid isn't a price. */
     fun search(query: String?, gtin: String? = null, limit: Int = 50): List<Listing> {

@@ -17,7 +17,6 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.util.Base64
-import java.util.concurrent.TimeUnit
 
 /**
  * Names the item with Google's Gemini API, which has a free tier (key from
@@ -26,7 +25,7 @@ import java.util.concurrent.TimeUnit
  */
 class GeminiService(
     private val apiKey: String,
-    private val http: OkHttpClient = OkHttpClient.Builder().callTimeout(90, TimeUnit.SECONDS).build(),
+    private val http: OkHttpClient = Http.client,
 ) {
     fun identify(photos: List<ByteArray>, hint: String? = null): ItemIdentification {
         val models = cachedModels ?: listModels().also { cachedModels = it }
@@ -35,7 +34,12 @@ class GeminiService(
         // Best model first; if its free quota is used up, try the next (Flash-Lite has higher free limits).
         for (model in models.take(3)) {
             try {
-                return generate(model, photos, hint)
+                return try {
+                    generate(model, photos, hint)
+                } catch (e: java.io.InterruptedIOException) {
+                    // One retry on a slow reply or a dropped mobile connection.
+                    generate(model, photos, hint)
+                }
             } catch (e: QuotaException) {
                 lastError = e
             }

@@ -25,7 +25,7 @@ sealed interface Screen {
     data class Busy(val message: String) : Screen
     data class Identified(val item: ItemIdentification) : Screen
     data class Results(val report: CompsReport) : Screen
-    data class Failed(val message: String, val canRetrySearch: Boolean) : Screen
+    data class Failed(val message: String, val canRetrySearch: Boolean, val canRetryIdentify: Boolean = false) : Screen
 }
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -116,7 +116,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _photos.value = _photos.value.filterIndexed { i, _ -> i != index }
     }
 
+    private var lastHint = ""
+
+    /** Runs identification again with the same photos (e.g. after a timeout). */
+    fun retryIdentify() = identify(lastHint)
+
     fun identify(hint: String) {
+        lastHint = hint
         val photos = _photos.value.takeIf { it.isNotEmpty() } ?: return
         viewModelScope.launch {
             _screen.value = Screen.Busy("Identifying the item…")
@@ -149,7 +155,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
                 .onSuccess { lastItem = it; _screen.value = Screen.Identified(it) }
-                .onFailure { _screen.value = Screen.Failed(describe(it), false) }
+                .onFailure { _screen.value = Screen.Failed(describe(it), canRetrySearch = false, canRetryIdentify = true) }
         }
     }
 
@@ -183,7 +189,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun describe(t: Throwable): String {
         val msg = generateSequence(t) { it.cause }.mapNotNull { it.message }.firstOrNull() ?: t.javaClass.simpleName
+        val timedOut = generateSequence(t) { it.cause }.any { it is java.io.InterruptedIOException } ||
+            msg.contains("timeout", ignoreCase = true) || msg.contains("timed out", ignoreCase = true)
         return when {
+            timedOut -> "The reply took too long (timed out). Check your signal and tap Try again."
+            t is java.net.UnknownHostException -> "No internet connection. Check your signal and tap Try again."
             msg.contains("401") || msg.contains("authentication", ignoreCase = true) ->
                 "Your Anthropic API key was rejected. Check it in Settings."
             else -> msg
