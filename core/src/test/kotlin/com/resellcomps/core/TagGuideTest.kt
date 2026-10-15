@@ -33,4 +33,15 @@ class TagGuideTest {
         assertEquals(listOf("Polo Ralph Lauren"), TagGuide.matching("Polo by Ralph Lauren oxford").map { it.name })
         assertEquals(listOf("Levi's"), TagGuide.matching(null, "LEVI'S 501, care tag 0594").map { it.name })
     }
+
+    @Test fun findsTheSecondBatchOfBrands() {
+        val cases = mapOf(
+            "Carhartt detroit jacket" to "Carhartt", "Dickies 874" to "Dickies", "Stussy tee" to "Stüssy",
+            "Reebok windbreaker" to "Reebok", "Brockum Metallica tee" to "Brockum", "Winterland Grateful Dead" to "Winterland",
+            "Pendleton board shirt" to "Pendleton", "L.L.Bean Freeport Maine" to "L.L. Bean", "Woolrich buffalo plaid" to "Woolrich",
+            "Eddie Bauer goose down" to "Eddie Bauer", "Calvin Klein jeans" to "Calvin Klein", "Wrangler 13MWZ" to "Wrangler",
+            "Lee Riders" to "Lee", "Tommy Hilfiger flag" to "Tommy Hilfiger", "Chaps sweater" to "Polo Ralph Lauren",
+        )
+        cases.forEach { (text, brand) -> assertEquals(listOf(brand), TagGuide.matching(text).map { it.name }, text) }
+    }
 }
