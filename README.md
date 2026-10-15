@@ -6,8 +6,8 @@ listings. No typing needed.
 
 ## How to use it
 
-1. **Take a photo** (or pick from the gallery). Add the tag, label or barcode if it has one: up to 6
-   photos of the same item are used together.
+1. **Take photos with the built-in camera**: the whole item, then a close-up of the tag, then any
+   extras (up to 6; or add from the gallery). Tap **Scan** to identify them all together.
 2. The free AI **recognizes the item** and writes the search. It also dates the item when the photos
    show enough (e.g. "1990s: single-stitch hem"), under *What the app saw*. Edit the search if needed.
 3. Tap a button to see real listings:

@@ -1,151 +1,309 @@
 package com.resellcomps.app.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
-import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.ImageProxy
+import androidx.camera.view.CameraController
+import androidx.camera.view.LifecycleCameraController
+import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.Keyboard
-import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.resellcomps.app.Images
 import com.resellcomps.app.MainViewModel
 import com.resellcomps.core.IdentifyPrompt
-import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
+private val Glass = Color.Black.copy(alpha = 0.55f)
+private val ScanGreen = Color(0xFF81C784)
+
+/**
+ * The in-app camera: live preview with corner guides and a step prompt, a shutter for
+ * several shots in a row (item, then tag, then extras), and a dark tray with the shots,
+ * delete-last and Scan, which identifies all the photos together.
+ */
 @Composable
 fun HomeScreen(vm: MainViewModel, photos: List<ByteArray>, modifier: Modifier) {
     val context = LocalContext.current
-    var pendingUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
     val room = IdentifyPrompt.MAX_PHOTOS - photos.size
 
-    val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
-        if (ok) pendingUri?.let { vm.addPhotos(listOf(it)) }
+    var hasPermission by remember {
+        mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
     }
+    val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { hasPermission = it }
+    LaunchedEffect(Unit) { if (!hasPermission) askPermission.launch(Manifest.permission.CAMERA) }
+
     val pickPhotos = rememberLauncherForActivityResult(
         ActivityResultContracts.PickMultipleVisualMedia(IdentifyPrompt.MAX_PHOTOS)
     ) { uris -> vm.addPhotos(uris) }
 
-    Column(
-        modifier.verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        if (photos.isEmpty()) {
-            Text("What's it worth?", style = MaterialTheme.typography.headlineSmall)
-            Text(
-                "Take a photo (add the tag or label for a better match) and the app writes the search for you. " +
-                    "Then tap eBay Active or eBay Sold to see real listings.",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        } else {
-            PhotoStrip(photos, onRemove = vm::removePhoto)
-            Text(
-                "${photos.size} of ${IdentifyPrompt.MAX_PHOTOS} photos. Add the tag, label or barcode if you haven't.",
-                style = MaterialTheme.typography.bodySmall,
-            )
-        }
+    val controller = remember {
+        LifecycleCameraController(context).apply { setEnabledUseCases(CameraController.IMAGE_CAPTURE) }
+    }
+    var capturing by remember { mutableStateOf(false) }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(
-                enabled = room > 0,
-                onClick = {
-                    val dir = File(context.cacheDir, "photos").apply { mkdirs() }
-                    val file = File(dir, "capture_${System.currentTimeMillis()}.jpg")
-                    val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", file)
-                    pendingUri = uri
-                    takePicture.launch(uri)
+    fun shoot() {
+        if (capturing || room <= 0) return
+        capturing = true
+        controller.takePicture(
+            ContextCompat.getMainExecutor(context),
+            object : ImageCapture.OnImageCapturedCallback() {
+                override fun onCaptureSuccess(image: ImageProxy) {
+                    val bitmap = image.toBitmap()
+                    val rotation = image.imageInfo.rotationDegrees
+                    image.close()
+                    scope.launch {
+                        val jpeg = withContext(Dispatchers.Default) { Images.fromCapture(bitmap, rotation) }
+                        vm.addCapturedPhoto(jpeg)
+                        capturing = false
+                    }
+                }
+
+                override fun onError(exception: ImageCaptureException) {
+                    capturing = false
+                    Toast.makeText(context, "Couldn't take the photo: ${exception.message}", Toast.LENGTH_LONG).show()
+                }
+            },
+        )
+    }
+
+    Box(modifier.background(Color.Black)) {
+        if (hasPermission) {
+            AndroidView(
+                factory = { ctx ->
+                    PreviewView(ctx).apply {
+                        scaleType = PreviewView.ScaleType.FILL_CENTER
+                        setController(controller)
+                    }
                 },
-                modifier = Modifier.weight(1f),
-            ) {
-                Icon(Icons.Filled.PhotoCamera, contentDescription = null)
-                Text(if (photos.isEmpty()) "  Take photo" else "  Add photo")
+                modifier = Modifier.fillMaxSize(),
+            )
+            // Camera runs only while this screen is showing.
+            DisposableEffect(controller, lifecycleOwner) {
+                controller.bindToLifecycle(lifecycleOwner)
+                onDispose { controller.unbind() }
             }
-            OutlinedButton(
-                enabled = room > 0,
-                onClick = { pickPhotos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-                modifier = Modifier.weight(1f),
+        } else {
+            Column(
+                Modifier.align(Alignment.Center).padding(32.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Icon(Icons.Filled.PhotoLibrary, contentDescription = null)
-                Text("  Gallery")
+                Text(
+                    "Allow camera access to take photos here, or pick photos from your gallery.",
+                    color = Color.White, textAlign = TextAlign.Center,
+                )
+                Button(onClick = { askPermission.launch(Manifest.permission.CAMERA) }) { Text("Allow camera") }
             }
         }
 
-        if (photos.isEmpty()) {
-            OutlinedButton(onClick = vm::startTextSearch, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Filled.Keyboard, contentDescription = null)
-                Text("  Search by text")
-            }
+        // Frame guides and the step prompt.
+        CornerGuides(Modifier.align(Alignment.Center).padding(bottom = 120.dp).fillMaxWidth(0.84f).aspectRatio(0.78f))
+        if (room > 0) {
+            Text(
+                when (photos.size) {
+                    0 -> "Photograph the whole item"
+                    1 -> "Now a close-up of the tag"
+                    else -> "Add any additional photos"
+                },
+                color = Color.White,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.align(Alignment.Center).padding(bottom = 120.dp)
+                    .clip(RoundedCornerShape(50)).background(Glass).padding(horizontal = 22.dp, vertical = 12.dp),
+            )
         }
 
-        if (photos.isNotEmpty()) {
-            Button(
-                onClick = { vm.identify("") },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Identify again with these photos") }
+        // Type a search instead of taking photos.
+        Row(
+            Modifier.align(Alignment.TopStart).padding(12.dp).clip(RoundedCornerShape(50)).background(Glass)
+                .clickable { vm.startTextSearch() }.padding(horizontal = 14.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Filled.Keyboard, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text("Type instead", color = Color.White, style = MaterialTheme.typography.labelLarge)
+        }
+
+        Column(
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            // Gallery · shutter · flip camera
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                RoundGlassButton(onClick = {
+                    pickPhotos.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }) { Icon(Icons.Filled.PhotoLibrary, contentDescription = "Pick from gallery", tint = Color.White) }
+
+                Box(
+                    Modifier.size(78.dp).clip(CircleShape).border(4.dp, Color.White.copy(alpha = 0.9f), CircleShape)
+                        .clickable(enabled = hasPermission && !capturing && room > 0) { shoot() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        Modifier.size(62.dp).clip(CircleShape)
+                            .background(if (capturing || room <= 0) Color.White.copy(alpha = 0.35f) else Color.White)
+                    )
+                }
+
+                RoundGlassButton(onClick = {
+                    controller.cameraSelector =
+                        if (controller.cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA) CameraSelector.DEFAULT_FRONT_CAMERA
+                        else CameraSelector.DEFAULT_BACK_CAMERA
+                }) { Icon(Icons.Filled.Cameraswitch, contentDescription = "Switch camera", tint = Color.White) }
+            }
+
+            // Tray: shots so far, delete last, Scan.
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Glass).padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                LazyRow(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    itemsIndexed(photos) { i, photo ->
+                        val bitmap = remember(photo) { BitmapFactory.decodeByteArray(photo, 0, photo.size)?.asImageBitmap() }
+                        bitmap?.let {
+                            Image(
+                                bitmap = it, contentDescription = "Photo ${i + 1}",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.size(54.dp).clip(RoundedCornerShape(14.dp)),
+                            )
+                        }
+                    }
+                    if (room > 0) {
+                        item { EmptySlot() }
+                    }
+                }
+                IconButton(onClick = vm::removeLastPhoto, enabled = photos.isNotEmpty()) {
+                    Icon(
+                        Icons.Outlined.Delete, contentDescription = "Delete last photo",
+                        tint = if (photos.isNotEmpty()) Color(0xFFFF8A80) else Color.White.copy(alpha = 0.3f),
+                    )
+                }
+                Button(
+                    onClick = { vm.identify("") },
+                    enabled = photos.isNotEmpty(),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ScanGreen, contentColor = Color(0xFF0B2E13),
+                        disabledContainerColor = Color.White.copy(alpha = 0.15f), disabledContentColor = Color.White.copy(alpha = 0.5f),
+                    ),
+                    modifier = Modifier.heightIn(min = 52.dp),
+                ) {
+                    Text(if (photos.size > 1) "Scan (${photos.size})" else "Scan", fontWeight = FontWeight.Bold)
+                }
+            }
         }
     }
 }
 
+/** Thin white L-shaped corners marking where to frame the item. */
 @Composable
-private fun PhotoStrip(photos: List<ByteArray>, onRemove: (Int) -> Unit) {
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        itemsIndexed(photos) { i, photo ->
-            Box {
-                val bitmap = remember(photo) { BitmapFactory.decodeByteArray(photo, 0, photo.size)?.asImageBitmap() }
-                bitmap?.let {
-                    Image(
-                        bitmap = it, contentDescription = "Photo ${i + 1}",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(110.dp).clip(MaterialTheme.shapes.medium),
-                    )
-                }
-                IconButton(
-                    onClick = { onRemove(i) },
-                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(28.dp)
-                        .background(Color.Black.copy(alpha = 0.55f), CircleShape),
-                ) {
-                    Icon(Icons.Filled.Close, contentDescription = "Remove photo", tint = Color.White, modifier = Modifier.size(18.dp))
-                }
-            }
-        }
+private fun CornerGuides(modifier: Modifier) {
+    Canvas(modifier) {
+        val len = 34.dp.toPx()
+        val stroke = 3.dp.toPx()
+        val c = Color.White.copy(alpha = 0.85f)
+        val w = size.width
+        val h = size.height
+        fun l(a: Offset, b: Offset) = drawLine(c, a, b, strokeWidth = stroke, cap = StrokeCap.Round)
+        l(Offset(0f, 0f), Offset(len, 0f)); l(Offset(0f, 0f), Offset(0f, len))
+        l(Offset(w, 0f), Offset(w - len, 0f)); l(Offset(w, 0f), Offset(w, len))
+        l(Offset(0f, h), Offset(len, h)); l(Offset(0f, h), Offset(0f, h - len))
+        l(Offset(w, h), Offset(w - len, h)); l(Offset(w, h), Offset(w, h - len))
     }
+}
+
+@Composable
+private fun RoundGlassButton(onClick: () -> Unit, content: @Composable () -> Unit) {
+    Box(
+        Modifier.size(52.dp).clip(CircleShape).background(Glass).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { content() }
+}
+
+/** The dashed "next photo" slot in the tray. */
+@Composable
+private fun EmptySlot() {
+    Box(
+        Modifier.size(54.dp).drawBehind {
+            drawRoundRect(
+                color = Color.White.copy(alpha = 0.45f),
+                cornerRadius = CornerRadius(14.dp.toPx()),
+                style = Stroke(width = 1.5.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f))),
+            )
+        }
+    )
 }
 
 @Composable

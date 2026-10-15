@@ -32,6 +32,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private var lastHint = ""
 
+    /** Gallery photos join the ones on the camera screen; Scan identifies them all together. */
     fun addPhotos(uris: List<Uri>) {
         if (uris.isEmpty()) return
         viewModelScope.launch {
@@ -39,13 +40,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             runCatching {
                 withContext(Dispatchers.IO) { uris.map { Images.loadJpeg(getApplication(), it) } }
             }
-                .onSuccess {
-                    _photos.value = (_photos.value + it).take(IdentifyPrompt.MAX_PHOTOS)
-                    // No extra tap: identify as soon as a photo is in.
-                    identify("")
-                }
-                .onFailure { _screen.value = Screen.Failed("Couldn't read that photo: ${it.message}", false) }
+                .onSuccess { _photos.value = (_photos.value + it).take(IdentifyPrompt.MAX_PHOTOS) }
+                .onFailure { _screen.value = Screen.Failed("Couldn't read that photo: ${it.message}", false); return@launch }
+            _screen.value = Screen.Home
         }
+    }
+
+    /** A shot from the in-app camera. */
+    fun addCapturedPhoto(jpeg: ByteArray) {
+        _photos.value = (_photos.value + jpeg).take(IdentifyPrompt.MAX_PHOTOS)
+    }
+
+    fun removeLastPhoto() {
+        _photos.value = _photos.value.dropLast(1)
     }
 
     /** Straight to the search screen with no photo: type a search and tap eBay Active/Sold. */

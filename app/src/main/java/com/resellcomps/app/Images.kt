@@ -55,4 +55,19 @@ object Images {
             out.toByteArray()
         }
     }
+
+    /** A camera frame (rotated upright, shrunk) as JPEG bytes. */
+    fun fromCapture(bitmap: Bitmap, rotationDegrees: Int): ByteArray {
+        val longEdge = max(bitmap.width, bitmap.height)
+        val scale = if (longEdge > MAX_EDGE) MAX_EDGE.toFloat() / longEdge else 1f
+        val matrix = android.graphics.Matrix().apply {
+            postScale(scale, scale)
+            postRotate(rotationDegrees.toFloat())
+        }
+        val upright = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+        return ByteArrayOutputStream().use { out ->
+            upright.compress(Bitmap.CompressFormat.JPEG, 85, out)
+            out.toByteArray()
+        }
+    }
 }
