@@ -120,7 +120,8 @@ namespace ZombiesPort
             if (input.ReloadPressed && !IsBusy && Current.StartReload(now)) OnReloadStarted();
 
             if (IsBusy) return;
-            switch (Current.TryFire(now, input.FireHeld, holdToRepeatSemiAuto))
+            // Hold-to-repeat helps on a touch screen; with a mouse a semi-auto fires once per click.
+            switch (Current.TryFire(now, input.FireHeld, holdToRepeatSemiAuto && !input.FireFromMouse))
             {
                 case FireResult.Fired:
                     Shoot();

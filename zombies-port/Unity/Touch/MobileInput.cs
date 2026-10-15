@@ -5,9 +5,9 @@
 // a gamepad or keyboard can be added here later without changing gameplay code.
 //
 // In the editor (and desktop builds) a keyboard and mouse fallback is built in for testing:
-//   WASD move, Shift sprint, Tab toggles mouse look (it locks the cursor; Esc frees it),
-//   left mouse fire and right mouse aim while mouse look is on, R reload, V knife, Q swap weapon.
-// With mouse look off, the mouse clicks the on-screen touch buttons like a finger.
+//   click the game view to start playing (locks the cursor for mouse look; Esc frees it, Tab toggles),
+//   left mouse fire, right mouse aim, R reload, V knife, Q or mouse wheel swap weapon, WASD move, Shift sprint.
+// With the cursor free, the mouse clicks the on-screen touch buttons like a finger.
 
 using UnityEngine;
 #if ENABLE_INPUT_SYSTEM
@@ -45,6 +45,8 @@ namespace ZombiesPort
         public Vector2 Move { get; private set; }
         public bool Sprint { get; private set; }
         public bool FireHeld { get; private set; }
+        /// <summary>True while the trigger is the mouse button (semi-autos then need one click per shot, as in BO1 on PC).</summary>
+        public bool FireFromMouse { get; private set; }
         public bool AimHeld { get; private set; }
         public bool ReloadPressed { get; private set; }
         public bool KnifePressed { get; private set; }
@@ -85,6 +87,7 @@ namespace ZombiesPort
             }
 
             FireHeld = fireButton != null && fireButton.IsHeld;
+            FireFromMouse = false;
 
             if (aimIsToggle)
             {
@@ -104,9 +107,20 @@ namespace ZombiesPort
 #if UNITY_EDITOR || UNITY_STANDALONE
             if (keyboardMouseFallback) ReadKeyboardMouse();
 #endif
+            FireHeld |= ScriptedFire;
+            AimHeld |= ScriptedAim;
         }
 
+        /// <summary>Held inputs driven by automated tests and demos (same path as the touch buttons).</summary>
+        public bool ScriptedFire { get; set; }
+        public bool ScriptedAim { get; set; }
+
 #if UNITY_EDITOR || UNITY_STANDALONE
+        bool _swallowClick;
+
+        static bool PointerOverUi() =>
+            UnityEngine.EventSystems.EventSystem.current != null && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
+
         void ReadKeyboardMouse()
         {
 #if ENABLE_INPUT_SYSTEM
@@ -120,11 +134,20 @@ namespace ZombiesPort
             bool locked = Cursor.lockState == CursorLockMode.Locked;
             if (kb.tabKey.wasPressedThisFrame) Cursor.lockState = locked ? CursorLockMode.None : CursorLockMode.Locked;
             if (kb.escapeKey.wasPressedThisFrame) Cursor.lockState = CursorLockMode.None;
-            if (locked) _lookDegrees += mouse.delta.ReadValue() * mouseDegreesPerCount;
+            // Click into the game (not on a touch button) to grab the mouse; that click doesn't shoot.
+            if (!locked && (mouse.leftButton.wasPressedThisFrame || mouse.rightButton.wasPressedThisFrame) && !PointerOverUi())
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                _swallowClick = true;
+            }
+            if (_swallowClick && !mouse.leftButton.isPressed && !mouse.rightButton.isPressed) _swallowClick = false;
+            locked = Cursor.lockState == CursorLockMode.Locked && !_swallowClick;
+            if (Cursor.lockState == CursorLockMode.Locked) _lookDegrees += mouse.delta.ReadValue() * mouseDegreesPerCount;
+            SwapPressed |= Cursor.lockState == CursorLockMode.Locked && Mathf.Abs(mouse.scroll.ReadValue().y) > 0.01f;
 
             if (keys != Vector2.zero) Move = Vector2.ClampMagnitude(keys, 1f);
             Sprint |= kb.leftShiftKey.isPressed && Move.y > 0f;
-            FireHeld |= locked && mouse.leftButton.isPressed;
+            if (locked && mouse.leftButton.isPressed) { FireFromMouse = !FireHeld; FireHeld = true; }
             AimHeld |= locked && mouse.rightButton.isPressed;
             ReloadPressed |= kb.rKey.wasPressedThisFrame;
             KnifePressed |= kb.vKey.wasPressedThisFrame;
@@ -136,12 +159,20 @@ namespace ZombiesPort
             bool locked = Cursor.lockState == CursorLockMode.Locked;
             if (Input.GetKeyDown(KeyCode.Tab)) Cursor.lockState = locked ? CursorLockMode.None : CursorLockMode.Locked;
             if (Input.GetKeyDown(KeyCode.Escape)) Cursor.lockState = CursorLockMode.None;
+            if (!locked && (Input.GetMouseButtonDown(0) || Input.GetMouseButtonDown(1)) && !PointerOverUi())
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                _swallowClick = true;
+            }
+            if (_swallowClick && !Input.GetMouseButton(0) && !Input.GetMouseButton(1)) _swallowClick = false;
+            locked = Cursor.lockState == CursorLockMode.Locked && !_swallowClick;
+            SwapPressed |= Cursor.lockState == CursorLockMode.Locked && Mathf.Abs(Input.mouseScrollDelta.y) > 0.01f;
             if (locked)
                 _lookDegrees += new Vector2(Input.GetAxisRaw("Mouse X"), Input.GetAxisRaw("Mouse Y")) * (mouseDegreesPerCount * 10f);
 
             if (keys != Vector2.zero) Move = Vector2.ClampMagnitude(keys, 1f);
             Sprint |= Input.GetKey(KeyCode.LeftShift) && Move.y > 0f;
-            FireHeld |= locked && Input.GetMouseButton(0);
+            if (locked && Input.GetMouseButton(0)) { FireFromMouse = !FireHeld; FireHeld = true; }
             AimHeld |= locked && Input.GetMouseButton(1);
             ReloadPressed |= Input.GetKeyDown(KeyCode.R);
             KnifePressed |= Input.GetKeyDown(KeyCode.V);

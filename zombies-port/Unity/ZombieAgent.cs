@@ -58,6 +58,12 @@ namespace ZombiesPort
         /// <summary>Game over: stands still and stops attacking.</summary>
         public bool IsFrozen { get; private set; }
 
+        /// <summary>Animation cues for model animators that don't use a Unity Animator:
+        /// "spawn", "tear", "attack", "climb", "die".</summary>
+        public event System.Action<string> AnimationCue;
+        /// <summary>Current ground speed (m/s) from the NavMeshAgent.</summary>
+        public float MoveSpeed => _nav != null && _nav.enabled ? _nav.velocity.magnitude : 0f;
+
         static readonly int SpeedHash = Animator.StringToHash("Speed");
         static readonly int AttackHash = Animator.StringToHash("Attack");
         static readonly int DieHash = Animator.StringToHash("Die");
@@ -151,6 +157,7 @@ namespace ZombiesPort
 
             foreach (var c in _colliders) c.enabled = true;
             if (animator != null) animator.Rebind();
+            AnimationCue?.Invoke("spawn");
 
             _nav.enabled = true;
             _nav.Warp(transform.position); // Required: moving a NavMeshAgent's transform directly doesn't move the agent.
@@ -249,7 +256,7 @@ namespace ZombiesPort
                 if (_board >= 0)
                 {
                     _phaseTimer = now + _window.TearSeconds;
-                    if (_hasTear) animator.SetTrigger(TearHash);
+                    if (_hasTear) animator.SetTrigger(TearHash); AnimationCue?.Invoke("tear");
                 }
                 else if (now >= _nextReachIn)
                 {
@@ -283,7 +290,7 @@ namespace ZombiesPort
                 Vector3 d = p.transform.position - transform.position;
                 d.y = 0f;
                 if (d.sqrMagnitude > reach * reach) continue;
-                if (!swung && _hasAttack) animator.SetTrigger(AttackHash);
+                if (!swung) { if (_hasAttack) animator.SetTrigger(AttackHash); AnimationCue?.Invoke("attack"); }
                 swung = true;
                 _director.NotifyAttack(this, p);
             }
@@ -296,7 +303,7 @@ namespace ZombiesPort
             _phaseTimer = now;
             _climbFrom = transform.position;
             _nav.enabled = false; // Scripted move through the window; the NavMesh doesn't link through it.
-            if (_hasClimb) animator.SetTrigger(ClimbHash);
+            if (_hasClimb) animator.SetTrigger(ClimbHash); AnimationCue?.Invoke("climb");
         }
 
         void Climb(float now)
@@ -346,6 +353,7 @@ namespace ZombiesPort
             {
                 _nextAttack = now + attackInterval;
                 if (_hasAttack) animator.SetTrigger(AttackHash);
+                AnimationCue?.Invoke("attack");
                 _director.NotifyAttack(this, _target);
             }
         }
@@ -438,7 +446,7 @@ namespace ZombiesPort
             LeaveWindow();
             _nav.enabled = false;
             foreach (var c in _colliders) c.enabled = false; // Corpses don't block bullets or players.
-            if (_hasDie) animator.SetTrigger(DieHash);
+            if (_hasDie) animator.SetTrigger(DieHash); AnimationCue?.Invoke("die");
 
             _director.NotifyKilled(this, attacker);
             StartCoroutine(CorpseRoutine());
