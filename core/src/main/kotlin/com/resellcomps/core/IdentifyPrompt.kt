@@ -61,7 +61,31 @@ object IdentifyPrompt {
         if (!hint.isNullOrBlank()) append("\n\nThe seller adds: ").append(hint)
     }
 
-    fun fromJson(o: JsonObject): ItemIdentification = ItemIdentification(
+    fun fromJson(o: JsonObject): ItemIdentification = withVintageSearches(parse(o))
+
+    /**
+     * Keeps the searches in line with the vintage call, so it doesn't depend on the AI remembering:
+     * - yes: the full main search gets "vintage" in front (every other word kept), and the plain
+     *   version becomes a chip;
+     * - unsure: a "vintage" + full search chip is added;
+     * - no: "vintage" is taken off the main search.
+     */
+    fun withVintageSearches(item: ItemIdentification): ItemIdentification {
+        val main = item.searchQuery.trim()
+        if (main.isEmpty()) return item
+        val plain = main.removePrefix("vintage ").trim()
+        val withVintage = "vintage $plain"
+        val (newMain, extra) = when (item.vintage) {
+            "yes" -> withVintage to listOf(plain)
+            "unsure" -> main to listOf(if (main.startsWith("vintage ")) plain else withVintage)
+            "no" -> plain to emptyList()
+            else -> main to emptyList()
+        }
+        val alts = (extra + item.altQueries).map { it.trim() }.filter { it.isNotBlank() && it != newMain }.distinct().take(5)
+        return item.copy(searchQuery = newMain, altQueries = alts)
+    }
+
+    private fun parse(o: JsonObject): ItemIdentification = ItemIdentification(
         // Some free models drop this field; a usable search means it was identified.
         identified = (o["identified"] as? JsonPrimitive)?.booleanOrNull ?: !o.str("search_query").isNullOrBlank(),
         name = o.str("name") ?: "Unknown item",

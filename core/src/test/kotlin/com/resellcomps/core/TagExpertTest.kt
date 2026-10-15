@@ -43,4 +43,18 @@ class TagExpertTest {
         assertFalse(IdentifyPrompt.SYSTEM.lines().any { it.startsWith("        ") })
         assertTrue(TagExpert.userText(first).contains("don't just repeat the first answer"))
     }
+
+    @Test fun vintageYesKeepsEveryWordAndOffersThePlainSearch() {
+        val item = first.copy(searchQuery = "adidas yankees quarter zip sweatshirt", vintage = "yes",
+            altQueries = listOf("vintage adidas yankees sweatshirt", "adidas yankees pullover"))
+        val out = IdentifyPrompt.withVintageSearches(item)
+        assertEquals("vintage adidas yankees quarter zip sweatshirt", out.searchQuery)
+        assertEquals(listOf("adidas yankees quarter zip sweatshirt", "vintage adidas yankees sweatshirt", "adidas yankees pullover"), out.altQueries)
+    }
+
+    @Test fun vintageUnsureAddsAVintageChip() {
+        val out = IdentifyPrompt.withVintageSearches(first.copy(searchQuery = "adidas yankees quarter zip", vintage = "unsure"))
+        assertEquals("adidas yankees quarter zip", out.searchQuery)
+        assertEquals("vintage adidas yankees quarter zip", out.altQueries.first())
+    }
 }

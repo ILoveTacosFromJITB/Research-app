@@ -79,19 +79,13 @@ object TagExpert {
             str("reasoning")?.let { append(it) }
         }.trim().takeIf { it.isNotEmpty() }
 
-        val q = currentQuery.trim()
-        val query = when {
-            vintage == "yes" && !q.startsWith("vintage ") && q.isNotEmpty() -> "vintage $q"
-            vintage == "no" && q.startsWith("vintage ") -> q.removePrefix("vintage ").trim()
-            else -> q
-        }
-        return item.copy(
+        return IdentifyPrompt.withVintageSearches(item.copy(
             vintage = vintage,
             era = str("era") ?: item.era,
             vintageClues = str("vintage_clues") ?: item.vintageClues,
             tagReading = str("tag_reading") ?: item.tagReading,
             vintageReasoning = reasoning,
-            searchQuery = query,
-        )
+            searchQuery = currentQuery.trim(),
+        ))
     }
 }
