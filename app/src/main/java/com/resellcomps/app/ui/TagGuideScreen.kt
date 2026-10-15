@@ -82,5 +82,8 @@ fun BrandNotes(brand: TagGuide.Brand) {
             Text(era.look, style = MaterialTheme.typography.bodyMedium)
         }
         brand.tips.forEach { Text("Tip: $it", style = MaterialTheme.typography.bodySmall) }
+        brand.source?.let {
+            Text("Source: $it", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }

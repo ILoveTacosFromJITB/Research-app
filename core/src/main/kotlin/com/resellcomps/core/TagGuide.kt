@@ -17,6 +17,8 @@ object TagGuide {
         val category: String,
         val eras: List<Era>,
         val tips: List<String> = emptyList(),
+        /** Where the dates come from, when it's a specific reference. */
+        val source: String? = null,
     )
 
     /** Facts that date any tag, whatever the brand. */
@@ -31,6 +33,7 @@ object TagGuide {
         "Printed (tagless) neck labels = mostly early 2000s and later.",
         "A copyright date on a graphic is the earliest possible year, not the year it was made.",
         "Multi-language care tags (English/French/Spanish) = mostly mid-1990s and later.",
+        "Fake and reproduction vintage tags exist; when a tag looks right but something feels off, compare it side by side with known examples (Defunkd keeps archives of fake and authentic tags).",
     )
 
     val BRANDS = listOf(
@@ -38,31 +41,46 @@ object TagGuide {
             "Hanes", listOf("hanes", "beefy"), "Blank tees & sweats",
             listOf(
                 Era("1970s–80s", "Simple white tags with \"Hanes\" lettering; 50/50 and 100% cotton; Made in USA; single stitch."),
-                Era("1975–1990s", "Beefy-T line (\"Beefy\" in big letters); 1980s–early 90s versions are the most collected; Made in USA."),
-                Era("1990s", "\"Heavyweight\" and \"Her Way\" tags; Made in USA giving way to Honduras/El Salvador late in the decade."),
+                Era("1975–1990s", "Beefy-T line (\"Beefy\" in big letters); 1980s–early 90s versions are the most collected."),
+                Era("1989–1997", "Red/blue bar era: Fifty-Fifty, Beefy-T, Ultraweight, Heavyweight and 100% Cotton tags, sometimes double tags, Made in USA. Hanes had no strict tag format then, so design alone dates it loosely."),
                 Era("2000s+", "ComfortSoft lines and printed tagless necks; Central America and Asia."),
             ),
             listOf("A Beefy-T with single stitch and Made in USA is a strong vintage sign."),
+            source = "Defunkd tag dating guide (defunkd.com)",
         ),
         Brand(
             "Fruit of the Loom", listOf("fruit of the loom", "fruit of loom"), "Blank tees & sweats",
             listOf(
-                Era("1970s–80s", "Tags with the fruit-cluster logo, often 50/50, Made in USA, single stitch."),
-                Era("Late 1980s–1990s", "\"Best\" and \"Heavy Cotton\" tags; Made in USA, later Honduras/El Salvador/Mexico."),
-                Era("2000s+", "Tagless prints and Central American / Asian production."),
+                Era("1970s–1983", "Earlier tags with the fruit-cluster logo; often 50/50, Made in USA, single stitch."),
+                Era("1984–1993", "Later tag styles, including \"Best\" and \"Heavy Cotton\"; Made in USA, then Central America."),
+                Era("Mid-1990s–1998", "Last of the vintage-era tags before the modern ones."),
+                Era("2004–2012", "Modern tags; not vintage."),
             ),
+            source = "Defunkd tag dating guide (defunkd.com)",
         ),
         Brand(
             "Screen Stars", listOf("screen stars", "screenstars"), "Blank tees",
-            listOf(Era("1980s–early 1990s", "Staple for printed and concert tees; \"Screen Stars Best\" 50/50 tags are classic mid-to-late 80s; Made in USA, single stitch.")),
-            listOf("Seeing Screen Stars at all leans 1980s."),
+            listOf(
+                Era("Before 1980", "Fruit of the Loom's printable blanks had generic tags (RN 13765)."),
+                Era("1980", "First branded Screen Stars tag."),
+                Era("1981–1983", "The most famous version of the tag."),
+                Era("c. 1983+", "Third-generation tag."),
+                Era("Late 1980s–1994", "\"Screen Stars Best\" tags."),
+            ),
+            listOf(
+                "RN 13765 is Fruit of the Loom's number, so it shows up on Screen Stars tags.",
+                "Non-US origins can be genuine: Ireland, Canada, Mexico and El Salvador tags exist from the 80s–90s.",
+                "Fake Screen Stars tags exist (e.g. Thailand-made reproductions) — compare closely.",
+            ),
+            source = "Defunkd tag dating guide (defunkd.com)",
         ),
         Brand(
             "Jerzees", listOf("jerzees"), "Blank tees & sweats",
             listOf(
-                Era("1980s–1990s", "Russell-made brand launched in the early 1980s; Made in USA tags, 50/50 sweats."),
+                Era("1985–1998", "Vintage-era Jerzees tags (a Russell brand); Made in USA, 50/50 sweats."),
                 Era("2000s+", "Imported, newer logo styles."),
             ),
+            source = "Defunkd tag dating guide (defunkd.com)",
         ),
         Brand(
             "Tultex", listOf("tultex"), "Blank tees & sweats",
@@ -71,15 +89,17 @@ object TagGuide {
         ),
         Brand(
             "Oneita", listOf("oneita"), "Blank tees",
-            listOf(Era("1980s–late 1990s", "Common on 80s–90s printed and band tees; often Made in USA.")),
+            listOf(Era("1984–1999", "Power-T, Power/50, PowerPro and Colorwear tags (some 100% cotton, some 50/50; later ones Made in Mexico); Atlanta 1996 Olympics tees too.")),
             listOf("The company went under in the late 1990s, so Oneita tags are pre-2000."),
+            source = "Defunkd tag dating guide (defunkd.com)",
         ),
         Brand(
-            "Anvil", listOf("anvil"), "Blank tees",
+            "Anvil / Ched", listOf("anvil", "ched"), "Blank tees",
             listOf(
-                Era("1980s–1990s", "Made in USA tags on printed tees and souvenir shirts."),
-                Era("2000s", "Imported; later absorbed by Gildan."),
+                Era("1976–1988", "Ched era: Ched Quality Knits, Ched by Anvil, Anvil Athletic and Value-T tags."),
+                Era("1989–2007", "Anvil blue bar and red bar tags, sometimes double tags."),
             ),
+            source = "Defunkd tag dating guide (defunkd.com)",
         ),
         Brand(
             "Gildan", listOf("gildan"), "Blank tees",
@@ -87,19 +107,49 @@ object TagGuide {
             listOf("Gildan alone usually points to 2000s or later."),
         ),
         Brand(
-            "Signal / Velva Sheen", listOf("signal", "velva sheen", "velvasheen"), "Blank tees",
-            listOf(Era("1970s–1980s", "Souvenir, school and tourist tees; often 50/50, Made in USA, single stitch.")),
+            "Signal", listOf("signal"), "Blank tees",
+            listOf(Era("1977–1994", "Signal tees: souvenir, school and tourist prints; often 50/50, Made in USA.")),
+            source = "Defunkd tag dating guide (defunkd.com)",
+        ),
+        Brand(
+            "Velva Sheen", listOf("velva sheen", "velvasheen"), "Blank tees",
+            listOf(
+                Era("1970s–80s", "Souvenir and licensed tees (including Disney); some yellow tags with late-70s prints."),
+                Era("Later tags", "Blue lettering on a white satin-like label."),
+            ),
+            listOf("Bought by Brazos Sportswear in 1994, which went bankrupt in 1999 — so Velva Sheen tags are pre-2000."),
+            source = "Defunkd tag dating guide (defunkd.com)",
+        ),
+        Brand(
+            "Stedman / Hi Cru", listOf("stedman", "hi cru", "hi-cru", "high-cru"), "Blank tees",
+            listOf(Era("1971–1997", "Hi Cru by Stedman, Golden Hi-Cru, Super Hi-Cru, Sport-T and Super 50 tags; Made in USA; later \"Stedman by Hanes\".")),
+            listOf("Hanes bought Stedman in the mid-1990s and the name was gone after 2000."),
+            source = "Defunkd tag dating guide (defunkd.com)",
+        ),
+        Brand(
+            "Sportswear", listOf("sportswear ii"), "Blank tees",
+            listOf(
+                Era("1968–1981", "Early Sportswear tags."),
+                Era("1981–1990", "Sportswear and Sportswear II tags."),
+            ),
+            source = "Defunkd tag dating guide (defunkd.com)",
+        ),
+        Brand(
+            "Delta", listOf("delta"), "Blank tees",
+            listOf(Era("1988–2014", "Delta tags, including \"fifty-fifty\" blends; early ones are vintage, later ones not.")),
+            source = "Defunkd tag dating guide (defunkd.com)",
         ),
         Brand(
             "Champion", listOf("champion"), "Athletic",
             listOf(
-                Era("1950s–60s", "Early \"Running Man\" tags."),
-                Era("Late 1960s–70s", "\"Blue Bar\" tags (Champion Products, Rochester NY)."),
-                Era("1980s", "Red/white/blue \"tri-color\" (trico) tags; Reverse Weave sweats Made in USA."),
-                Era("1990s", "Tags with the \"C\" logo; Reverse Weave still often Made in USA early in the decade."),
-                Era("2000s+", "Imported; modern reissues copy old tags, so check country and care tag."),
+                Era("Before 1967", "Older Champion Knitwear-era tags (e.g. \"Running Man\")."),
+                Era("1967–c. 1969", "Champion Products generic placeholder tag."),
+                Era("1969–1970s", "Champion script logo on tags; \"blue bar\" (far more common) and red bar versions. Early ones have no care instructions on the back — just the name, RN and Made in USA."),
+                Era("1980s", "Red/white/blue \"tri-color\" tags; Reverse Weave sweats Made in USA."),
+                Era("Late 1990s–2000s", "\"Champion Authentic Athletic Apparel\" tags."),
             ),
             listOf("Reissues of Reverse Weave use old-style tags; modern care symbols give them away."),
+            source = "Defunkd tag dating guide (defunkd.com)",
         ),
         Brand(
             "Nike", listOf("nike"), "Athletic",
@@ -184,17 +234,23 @@ object TagGuide {
         Brand(
             "Band / concert tee tags", listOf("brockum", "giant", "winterland", "tennessee river", "stanley desantis"), "Band tees",
             listOf(
-                Era("1980s–1990s", "Brockum and Winterland merch tags; tour dates printed on the back."),
+                Era("1980s–1990s", "Brockum merch tags; tour dates printed on the back."),
+                Era("1982–2008", "Winterland merch tags."),
                 Era("1990s–2000s", "Giant tags are typical of 90s merch."),
             ),
             listOf("Tour dates and copyright years on the print help, but check the tag for reprints."),
+            source = "Defunkd tag dating guide (defunkd.com)",
         ),
         Brand(
             "Disney", listOf("disney", "mickey"), "Character",
             listOf(
-                Era("1970s–80s", "Character Fashions and Velva Sheen tags."),
+                Era("1972–early 80s", "Earlier Disney character tees; Velva Sheen and Sherry's made licensed Disney tees from the early 80s to mid-90s."),
+                Era("1982–1993", "Disney Character Fashions tags."),
                 Era("Late 1980s–1990s", "Mickey Inc., Mickey & Co. and Disney Designs tags."),
+                Era("c. 1997–2000", "Mickey Unlimited tags."),
             ),
+            listOf("Copyright line: \"Walt Disney Productions\" = before Feb 1986; \"Walt Disney Company\" or \"©Disney\" = after."),
+            source = "Defunkd tag dating guide (defunkd.com)",
         ),
     )
 
