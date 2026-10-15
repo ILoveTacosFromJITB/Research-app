@@ -26,6 +26,8 @@ object TagExpert {
         - Single-stitch sleeves and hems on tees are mostly before about 1995-1997; double-stitch
           after. Reproductions exist, so pair it with the tag.
         - Union labels (ILGWU, ACWA) lean before 1995, when ILGWU merged into UNITE.
+        - Countries that no longer exist cap the date: West Germany before 1990, USSR and Yugoslavia
+          before 1992, Czechoslovakia before 1993.
         - WPL numbers mean before 1959. RN numbers identify the company, not the year.
         - Copyright dates on a print give the earliest possible year, not the exact year.
         - Fiber: 50/50 cotton-poly tees are typical of the late 1970s-1990s.
@@ -63,6 +65,11 @@ object TagExpert {
             append("don't just repeat the first answer. ")
         }
         append("Date this item from its tags.")
+        val brands = TagGuide.matching(item)
+        if (brands.isNotEmpty()) {
+            append("\n\nReference notes on these brands' tag versions (typical ranges; compare the tag you see):\n")
+            append(TagGuide.notesFor(brands))
+        }
     }
 
     /** Applies the expert's answer: new vintage call, and "vintage" added to or removed from the search. */

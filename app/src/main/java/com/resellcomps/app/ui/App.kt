@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.LocalLibrary
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -59,23 +60,35 @@ fun App(vm: MainViewModel) {
         val screen by vm.screen.collectAsState()
         val photos by vm.photos.collectAsState()
         var showSettings by rememberSaveable { mutableStateOf(!vm.settings.seenSettings) }
-        val canGoBack = showSettings || screen !is Screen.Home || photos.isNotEmpty()
-        val goBack = { if (showSettings) showSettings = false else vm.reset() }
+        var showGuide by rememberSaveable { mutableStateOf(false) }
+        val canGoBack = showSettings || showGuide || screen !is Screen.Home || photos.isNotEmpty()
+        val goBack = {
+            when {
+                showSettings -> showSettings = false
+                showGuide -> showGuide = false
+                else -> vm.reset()
+            }
+        }
 
         BackHandler(enabled = canGoBack) { goBack() }
 
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(if (showSettings) "Settings" else "Resell Comps") },
+                    title = { Text(when { showSettings -> "Settings"; showGuide -> "Tag Guide"; else -> "Resell Comps" }) },
                     navigationIcon = {
                         if (canGoBack) {
                             IconButton(onClick = goBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
                         }
                     },
                     actions = {
+                        if (!showSettings && !showGuide) {
+                            IconButton(onClick = { showGuide = true }) {
+                                Icon(Icons.Filled.LocalLibrary, contentDescription = "Tag Guide")
+                            }
+                        }
                         if (!showSettings) {
-                            IconButton(onClick = { showSettings = true }) {
+                            IconButton(onClick = { showGuide = false; showSettings = true }) {
                                 Icon(Icons.Filled.Settings, contentDescription = "Settings")
                             }
                         }
@@ -88,6 +101,7 @@ fun App(vm: MainViewModel) {
             val modifier = Modifier.padding(padding).consumeWindowInsets(padding).fillMaxSize().imePadding()
             when {
                 showSettings -> SettingsScreen(vm, modifier) { showSettings = false }
+                showGuide -> TagGuideScreen(modifier)
                 else -> when (val s = screen) {
                     Screen.Home -> HomeScreen(vm, photos, modifier)
                     is Screen.Busy -> BusyScreen(s.message, modifier)

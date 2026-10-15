@@ -51,6 +51,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.resellcomps.core.ItemIdentification
 import com.resellcomps.core.SoldSearchLinks
+import com.resellcomps.core.TagGuide
 
 /** Ready-made questions for Google Lens, picked with one tap. */
 private val LENS_QUESTIONS = listOf(
@@ -258,6 +259,14 @@ private fun VintageCard(item: ItemIdentification, onDigDeeper: (() -> Unit)?) {
                     item.tagReading?.let { Text("On the tag: $it", style = MaterialTheme.typography.bodySmall) }
                     item.vintageReasoning?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 }
+            }
+            // Learn as you scan: the built-in tag history for the brand(s) on this item.
+            TagGuide.matching(item).forEach { brand ->
+                var showBrand by rememberSaveable(item, brand.name) { mutableStateOf(false) }
+                TextButton(onClick = { showBrand = !showBrand }) {
+                    Text(if (showBrand) "Hide ${brand.name} tag history" else "About ${brand.name} tags")
+                }
+                if (showBrand) BrandNotes(brand)
             }
             if (onDigDeeper != null) {
                 OutlinedButton(onClick = onDigDeeper, modifier = Modifier.fillMaxWidth()) {
