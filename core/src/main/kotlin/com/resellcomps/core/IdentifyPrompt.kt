@@ -48,6 +48,13 @@ object IdentifyPrompt {
         "alvin and the chipmunks road chip blu-ray". If the photos do not show an identifiable
         item, set identified to false and explain in details.
 
+        When the label shows a premium or collectible line of a brand, that line goes in
+        search_query, because it changes the price far more than age does: e.g. Ralph Lauren
+        Purple Label (purple or dark navy label with "Ralph Lauren" in white or silver script,
+        usually Made in Italy), RRL / Double RL, Polo Country, Polo Sport, RLX, Ralph Lauren
+        Black Label; Levi's Vintage Clothing (LVC); Nike ACG; Patagonia Synchilla. Example:
+        "ralph lauren purple label cardigan", not "ralph lauren cotton cardigan".
+
         alt_queries: 2 to 4 other searches a reseller would also try, different from search_query
         and from each other, in the same short lowercase style. Mix: one adding "vintage" or the
         era (only if it could plausibly be vintage), one more specific (exact line, colorway,

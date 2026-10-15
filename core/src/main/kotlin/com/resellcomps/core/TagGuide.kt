@@ -440,7 +440,7 @@ object TagGuide {
             source = "Vintage Fashion Guild, Permanent Style, Fast Company, Heddels",
         ),
         Brand(
-            "Polo Ralph Lauren", listOf("polo ralph lauren", "ralph lauren", "polo by ralph lauren", "polo sport", "rrl", "double rl", "polo country", "chaps", "polo"), "Designer",
+            "Ralph Lauren (Polo, Purple Label, RRL…)", listOf("polo ralph lauren", "ralph lauren", "polo by ralph lauren", "polo sport", "rrl", "double rl", "polo country", "chaps", "purple label", "rlx", "polo"), "Designer",
             listOf(
                 Era("1970s", "Small, simple labels focused on the name; the polo player logo starts appearing."),
                 Era("1980s", "Larger labels with more information (fabric, care); many Made in USA; Hong Kong-made pieces are mostly 80s–90s."),
@@ -453,9 +453,11 @@ object TagGuide {
                 "Value comes from the line and logo (Polo Sport, Polo Bear, big logos, Stadium, RRL) as much as age.",
                 "Lines: Polo Country late 1980s–early 90s (some pieces from 1984; RRL's predecessor); Polo Sport 1992+ (a few 1990–91); RRL 1993+; Chaps since 1978.",
                 "\"Chaps Ralph Lauren\" crest labels are mostly 1990s–early 2000s; a plain \"Chaps\" label is later and cheaper — often mislisted as Ralph Lauren.",
-                "RRL and Polo Country bring the most money.",
+                "RRL and Polo Country bring the most money among vintage lines; Purple Label is the top luxury line.",
+                "Purple Label (from about 1994): purple or very dark navy label with \"Ralph Lauren\" in white or silver script, mostly Made in Italy, often mother-of-pearl buttons. Italy is normal for this line, so it doesn't date it. Search it as \"ralph lauren purple label …\".",
+                "Other label colors (reseller guides): Black Label = black with silver block print; Blue Label = navy with white lettering; Lauren Ralph Lauren = green or silver labels (department-store line); RLX from 1998; Polo Sport retired 2005.",
             ),
-            source = "Vintage Polo Ralph Lauren tag guides (Vintage Rare USA, WEAR2AM, Watch and Gather, Vintage Clothing Guides) — label details vary between sources",
+            source = "Vintage Polo Ralph Lauren tag guides (Vintage Rare USA, WEAR2AM, Watch and Gather, Vintage Clothing Guides, Thrifted), Poshmark Ralph Lauren label guide, Heddels — label details vary between sources",
         ),
         Brand(
             "Tommy Hilfiger", listOf("tommy hilfiger", "hilfiger", "tommy jeans"), "Designer",

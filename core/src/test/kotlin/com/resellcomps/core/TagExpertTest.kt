@@ -57,4 +57,14 @@ class TagExpertTest {
         assertEquals("adidas yankees quarter zip", out.searchQuery)
         assertEquals("vintage adidas yankees quarter zip", out.altQueries.first())
     }
+
+    @Test fun tagCheckCanPutAPremiumLineInTheSearch() {
+        val item = first.copy(name = "Ralph Lauren cardigan", brand = "Ralph Lauren", searchQuery = "ralph lauren cotton cardigan",
+            vintage = "no", altQueries = listOf("ralph lauren cardigan xxl"))
+        assertTrue(TagExpert.userText(item).contains("Purple Label (from about 1994)"))
+        val out = TagExpert.apply(item, json("""{"vintage":"no","era":"2010s","better_search":"Ralph Lauren Purple Label cardigan"}"""), "ralph lauren cotton cardigan")
+        assertEquals("ralph lauren purple label cardigan", out.searchQuery)
+        assertEquals(listOf("ralph lauren cotton cardigan", "ralph lauren cardigan xxl"), out.altQueries)
+        assertEquals("ralph lauren cotton cardigan", TagExpert.apply(item, json("""{"vintage":"no","better_search":null}"""), "ralph lauren cotton cardigan").searchQuery)
+    }
 }

@@ -31,6 +31,9 @@ object TagExpert {
         - WPL numbers mean before 1959. RN numbers identify the company, not the year.
         - Copyright dates on a print give the earliest possible year, not the exact year.
         - Fiber: 50/50 cotton-poly tees are typical of the late 1970s-1990s.
+        - Premium lines have their own origin patterns: e.g. Ralph Lauren Purple Label (from the
+          mid-1990s) is mostly Made in Italy in every era, so Italy doesn't date it; date it by
+          other clues or say the range is unclear.
         - Recognize brand tag versions when you can (e.g. Hanes Beefy-T, Screen Stars, Champion
           blue bar/runner, Nike orange swoosh or white tag, Levi's big E, Russell gold tag, Starter,
           Majestic, Delta, Gildan) and say which version you think it is and its usual years.
@@ -52,7 +55,10 @@ object TagExpert {
         "evidence_older" (array of strings), "evidence_newer" (array of strings),
         "reasoning" (string: weigh the two lists in a few sentences),
         "vintage" ("yes", "no" or "unsure"), "era" (e.g. "1990s", "late 1990s to early 2000s"),
-        "vintage_clues" (string: the deciding clues).
+        "vintage_clues" (string: the deciding clues),
+        "better_search" (string or null: a better eBay search, short and lowercase, ONLY if the
+        tags show a line, model or name the current search misses, e.g. a premium line like
+        "ralph lauren purple label cardigan"; otherwise null).
     """.trimIndent()
 
     fun userText(item: ItemIdentification): String = buildString {
@@ -64,6 +70,7 @@ object TagExpert {
             append(". Another tool said it may be different, so re-check from the tags themselves; ")
             append("don't just repeat the first answer. ")
         }
+        if (item.searchQuery.isNotBlank()) append("The current eBay search is \"").append(item.searchQuery).append("\". ")
         append("Date this item from its tags.")
         val brands = TagGuide.matching(item)
         if (brands.isNotEmpty()) {
@@ -86,13 +93,21 @@ object TagExpert {
             str("reasoning")?.let { append(it) }
         }.trim().takeIf { it.isNotEmpty() }
 
+        // The tags can show a line the first look missed (e.g. Purple Label): that search goes first,
+        // and the old one stays one tap away.
+        val current = currentQuery.trim()
+        val better = str("better_search")?.lowercase()?.trim()?.takeIf { it != current }
+        val altQueries = if (better == null) item.altQueries
+        else (listOf(current) + item.altQueries).filter { it.isNotBlank() && it != better }.distinct()
+
         return IdentifyPrompt.withVintageSearches(item.copy(
             vintage = vintage,
             era = str("era") ?: item.era,
             vintageClues = str("vintage_clues") ?: item.vintageClues,
             tagReading = str("tag_reading") ?: item.tagReading,
             vintageReasoning = reasoning,
-            searchQuery = currentQuery.trim(),
+            searchQuery = better ?: current,
+            altQueries = altQueries,
         ))
     }
 }
