@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +28,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -139,6 +141,7 @@ private fun FailedScreen(s: Screen.Failed, modifier: Modifier, onRetry: (() -> U
 private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> Unit) {
     val st = vm.settings
     var freeAiKey by remember { mutableStateOf(st.freeAiKey) }
+    var autoDig by remember { mutableStateOf(st.autoDigDeeper) }
 
     Column(
         modifier.verticalScroll(rememberScrollState()).padding(16.dp),
@@ -158,6 +161,17 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
         )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Always dig deeper on tags", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "After each scan that shows a tag, the AI takes a second, closer look to date it. " +
+                        "More accurate vintage calls, but slower and uses the free limit twice as fast.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Switch(checked = autoDig, onCheckedChange = { autoDig = it })
+        }
         Text(
             "The key is stored only on this phone and sent only to that service. " +
                 "This app is not connected to your eBay account; its buttons just open eBay's own pages.",
@@ -166,6 +180,7 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
         Button(
             onClick = {
                 st.freeAiKey = freeAiKey
+                st.autoDigDeeper = autoDig
                 st.seenSettings = true
                 onDone()
             },

@@ -16,6 +16,11 @@ class Settings(context: Context) {
         get() = prefs.getString("lens_question", "").orEmpty()
         set(v) = prefs.edit().putString("lens_question", v).apply()
 
+    /** Run "Dig deeper on the tag" automatically after each scan that shows a tag. */
+    var autoDigDeeper: Boolean
+        get() = prefs.getBoolean("auto_dig_deeper", true)
+        set(v) = prefs.edit().putBoolean("auto_dig_deeper", v).apply()
+
     var seenSettings: Boolean
         get() = prefs.getBoolean("seen_settings", false)
         set(v) = prefs.edit().putBoolean("seen_settings", v).apply()

@@ -101,10 +101,33 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 }
             }
-                .onSuccess { _screen.value = Screen.Identified(it) }
+                .onSuccess { first ->
+                    if (shouldAutoDigDeeper(first)) {
+                        _screen.value = Screen.Busy("Checking the tag closely…")
+                        val deeper = runCatching {
+                            withContext(Dispatchers.IO) {
+                                FreeVisionAi(settings.freeAiKey).digDeeper(photos.map { Images.shrink(it, 1280) }, first, first.searchQuery) { secs ->
+                                    _screen.value = Screen.Busy("Free AI limit reached for this minute — continuing in ${secs}s…")
+                                }
+                            }
+                        }
+                        // If the second look fails, the first answer still stands.
+                        _screen.value = Screen.Identified(deeper.getOrDefault(first))
+                    } else {
+                        _screen.value = Screen.Identified(first)
+                    }
+                }
                 .onFailure { _screen.value = Screen.Failed(describe(it), canRetryIdentify = true) }
         }
     }
+
+    /**
+     * Run the tag-focused second look right away when it matters: tags were read, or the item
+     * may be vintage. Items without tags (media, electronics) skip it and stay fast.
+     */
+    private fun shouldAutoDigDeeper(item: ItemIdentification): Boolean =
+        settings.autoDigDeeper && settings.freeAiKey.isNotBlank() &&
+            (item.tagReading != null || item.vintage == "yes" || item.vintage == "unsure")
 
     /** True when the free AI is set up, so "Dig deeper" can run. */
     val canDigDeeper: Boolean get() = settings.freeAiKey.isNotBlank()
