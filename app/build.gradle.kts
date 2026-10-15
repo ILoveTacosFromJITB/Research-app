@@ -76,4 +76,7 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.google.mlkit:image-labeling:17.0.9")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
+
+    // On-phone AI backup: Gemini Nano through Android's AICore (ML Kit GenAI Prompt API)
+    implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
 }

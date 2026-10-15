@@ -143,6 +143,7 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
     var freeAiKey by remember { mutableStateOf(st.freeAiKey) }
     var autoDig by remember { mutableStateOf(st.autoDigDeeper) }
     var serverUrl by remember { mutableStateOf(st.serverUrl) }
+    var phoneAi by remember { mutableStateOf(st.phoneAi) }
 
     Column(
         modifier.verticalScroll(rememberScrollState()).padding(16.dp),
@@ -162,6 +163,18 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
             visualTransformation = PasswordVisualTransformation(),
             modifier = Modifier.fillMaxWidth(),
         )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("On-phone AI backup", style = MaterialTheme.typography.bodyLarge)
+                Text(
+                    "When the free limit runs out or there's no signal, use the AI built into your phone " +
+                        "(Gemini Nano on supported phones like Pixels). Free, unlimited and offline, but slower " +
+                        "and less sharp. The first use may download it.",
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            Switch(checked = phoneAi, onCheckedChange = { phoneAi = it })
+        }
         Text("My own AI server (optional)", style = MaterialTheme.typography.titleMedium)
         Text(
             "Your computer running Ollama, reached through Tailscale. Used first when it's on — unlimited " +
@@ -194,6 +207,7 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
                 st.freeAiKey = freeAiKey
                 st.autoDigDeeper = autoDig
                 st.serverUrl = serverUrl
+                st.phoneAi = phoneAi
                 st.seenSettings = true
                 onDone()
             },

@@ -21,6 +21,11 @@ class Settings(context: Context) {
         get() = prefs.getString("server_url", "").orEmpty()
         set(v) = prefs.edit().putString("server_url", v.trim()).apply()
 
+    /** Use the on-phone AI (Gemini Nano) when the free cloud limit runs out or there's no signal. */
+    var phoneAi: Boolean
+        get() = prefs.getBoolean("phone_ai", true)
+        set(v) = prefs.edit().putBoolean("phone_ai", v).apply()
+
     /** Run "Dig deeper on the tag" automatically after each scan that shows a tag. */
     var autoDigDeeper: Boolean
         get() = prefs.getBoolean("auto_dig_deeper", true)

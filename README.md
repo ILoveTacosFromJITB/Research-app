@@ -27,6 +27,11 @@ it is:
 - **Groq**: https://console.groq.com → API Keys → Create API Key (starts with `gsk_`).
 - **OpenRouter**: https://openrouter.ai → Keys → Create Key (starts with `sk-or-`).
 
+**On-phone AI backup:** on phones that offer it (e.g. Pixels), the app uses Gemini Nano, the AI built
+into the phone, when the free limit is used up, there's no signal, or no key is set. It's free,
+unlimited and offline, but slower and less sharp; Android may download it the first time. Turn it
+off in Settings.
+
 Free tiers have per-minute and daily limits. When the per-minute limit is hit, the app waits the few
 seconds the provider asks for and continues by itself; if the daily limit is used up it says so.
 Without a key the app can only read barcodes and printed text, which is much less accurate.

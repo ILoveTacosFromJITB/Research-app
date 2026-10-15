@@ -84,37 +84,21 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _screen.value = Screen.Busy("Identifying the item…")
             runCatching {
-                if (hasAi) {
-                    // Free AI (Groq or OpenRouter, detected from the key).
-                    withContext(Dispatchers.IO) {
-                        withAi { ai ->
-                            ai.identify(photos.map { Images.shrink(it) }, hint) { secs ->
-                                _screen.value = Screen.Busy("Free AI limit reached for this minute — continuing in ${secs}s…")
-                            }
-                        }
-                    }
-                } else {
-                    // No key yet: read barcodes and printed text on the phone.
-                    val reads = photos.map { OnDeviceReader.read(it) }
-                    FreeIdentification.build(
-                        gtin = reads.firstNotNullOfOrNull { it.gtin },
-                        textLines = reads.flatMap { it.textLines },
-                        objectLabels = reads.flatMap { it.labels }.distinct(),
+                if (!hasAi) return@runCatching basicReading(photos)
+                try {
+                    runAi(
+                        cloud = { ai -> ai.identify(photos.map { Images.shrink(it) }, hint, ::showLimitWait) },
+                        phone = { ai -> ai.identify(photos, hint, ::showProgress) },
                     )
+                } catch (e: OnPhoneAi.Unavailable) {
+                    // Only the on-phone AI was set up and this phone can't run it: read the tags instead.
+                    if (hasCloud) throw e else basicReading(photos)
                 }
             }
                 .onSuccess { first ->
                     if (shouldAutoDigDeeper(first)) {
                         _screen.value = Screen.Busy("Checking the tag closely…")
-                        val deeper = runCatching {
-                            withContext(Dispatchers.IO) {
-                                withAi { ai ->
-                                    ai.digDeeper(photos.map { Images.shrink(it, 1280) }, first, first.searchQuery) { secs ->
-                                        _screen.value = Screen.Busy("Free AI limit reached for this minute — continuing in ${secs}s…")
-                                    }
-                                }
-                            }
-                        }
+                        val deeper = runCatching { digDeeperWithAi(photos, first, first.searchQuery) }
                         // If the second look fails, the first answer still stands.
                         _screen.value = Screen.Identified(deeper.getOrDefault(first))
                     } else {
@@ -122,6 +106,66 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
                 .onFailure { _screen.value = Screen.Failed(describe(it), canRetryIdentify = true) }
+        }
+    }
+
+    /** No AI at all: read barcodes and printed text on the phone. */
+    private suspend fun basicReading(photos: List<ByteArray>): ItemIdentification {
+        val reads = photos.map { OnDeviceReader.read(it) }
+        return FreeIdentification.build(
+            gtin = reads.firstNotNullOfOrNull { it.gtin },
+            textLines = reads.flatMap { it.textLines },
+            objectLabels = reads.flatMap { it.labels }.distinct(),
+        )
+    }
+
+    private suspend fun digDeeperWithAi(photos: List<ByteArray>, item: ItemIdentification, query: String): ItemIdentification =
+        runAi(
+            cloud = { ai -> ai.digDeeper(photos.map { Images.shrink(it, 1280) }, item, query, ::showLimitWait) },
+            phone = { ai -> ai.digDeeper(photos, item, query, ::showProgress) },
+        )
+
+    private fun showLimitWait(secs: Int) {
+        _screen.value = Screen.Busy("Free AI limit reached for this minute — continuing in ${secs}s…")
+    }
+
+    private fun showProgress(message: String) {
+        _screen.value = Screen.Busy(message)
+    }
+
+    private val onPhoneAi by lazy { OnPhoneAi() }
+
+    override fun onCleared() {
+        runCatching { onPhoneAi.close() }
+    }
+
+    /**
+     * Cloud first (your server, then the Groq/OpenRouter key). When the free limit is used up,
+     * there's no signal, or no cloud AI is set up, the on-phone AI takes over (if turned on).
+     */
+    private suspend fun <T> runAi(cloud: (FreeVisionAi) -> T, phone: suspend (OnPhoneAi) -> T): T {
+        if (hasCloud) {
+            try {
+                return withContext(Dispatchers.IO) { withAi(cloud) }
+            } catch (e: Exception) {
+                val reason = phoneFallbackReason(e)
+                if (!settings.phoneAi || reason == null) throw e
+                _screen.value = Screen.Busy(reason)
+            }
+        }
+        return phone(onPhoneAi)
+    }
+
+    /** Why the cloud AI can't answer right now, if it's a case the on-phone AI can cover. */
+    private fun phoneFallbackReason(e: Throwable): String? {
+        val chain = generateSequence(e) { it.cause }.toList()
+        return when {
+            chain.any { it is FreeVisionAi.LimitException } -> "Free AI limit used up — using the on-phone AI…"
+            chain.any {
+                it is java.net.UnknownHostException || it is java.net.ConnectException ||
+                    it is java.net.NoRouteToHostException || it is FreeVisionAi.ServerOffline
+            } -> "No connection — using the on-phone AI…"
+            else -> null
         }
     }
 
@@ -136,8 +180,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** True when the free AI is set up, so "Dig deeper" can run. */
     val canDigDeeper: Boolean get() = hasAi
 
-    /** An AI is set up: your own server and/or a Groq/OpenRouter key. */
-    private val hasAi: Boolean get() = settings.serverUrl.isNotBlank() || settings.freeAiKey.isNotBlank()
+    /** A cloud AI is set up: your own server and/or a Groq/OpenRouter key. */
+    private val hasCloud: Boolean get() = settings.serverUrl.isNotBlank() || settings.freeAiKey.isNotBlank()
+
+    /** Any AI: cloud, or the on-phone backup. */
+    private val hasAi: Boolean get() = hasCloud || settings.phoneAi
 
     /**
      * Runs [request] on your own server when one is set, falling back to the Groq/OpenRouter key
@@ -150,7 +197,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 return request(FreeVisionAi("", server))
             } catch (e: FreeVisionAi.ServerOffline) {
                 if (settings.freeAiKey.isBlank()) {
-                    throw java.io.IOException("Your computer is off or asleep, and there's no Groq/OpenRouter key to fall back on.")
+                    throw FreeVisionAi.ServerOffline("Your computer is off or asleep, and there's no Groq/OpenRouter key to fall back on.")
                 }
                 val provider = FreeVisionAi.detect(settings.freeAiKey)?.label ?: "the backup key"
                 _screen.value = Screen.Busy("Your computer is off — using $provider…")
@@ -167,15 +214,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val photos = _photos.value.takeIf { it.isNotEmpty() } ?: return
         viewModelScope.launch {
             _screen.value = Screen.Busy("Studying the tags…")
-            val result = runCatching {
-                withContext(Dispatchers.IO) {
-                    withAi { ai ->
-                        ai.digDeeper(photos.map { Images.shrink(it, 1280) }, item, currentQuery) { secs ->
-                            _screen.value = Screen.Busy("Free AI limit reached for this minute — continuing in ${secs}s…")
-                        }
-                    }
-                }
-            }
+            val result = runCatching { digDeeperWithAi(photos, item, currentQuery) }
             _screen.value = Screen.Identified(
                 result.getOrElse { item.copy(searchQuery = currentQuery, warning = "Dig deeper didn't finish: ${describe(it)}") }
             )

@@ -55,6 +55,17 @@ object IdentifyPrompt {
         more results. Base them on what you see; don't invent details.
     """.trimIndent() + "\n\n" + TagExpert.DATING_GUIDE
 
+    /** The answer format: a JSON object with these keys. */
+    val JSON_REPLY = """
+        Reply with only a JSON object, no other text, with these keys in this order
+        (write tag_reading first, before deciding anything):
+        "tag_reading" (everything printed on the tags, or null if no tag is visible),
+        "identified" (true/false), "name", "brand" (or null), "model" (or null), "category",
+        "details", "search_query", "confidence" ("high", "medium" or "low"),
+        "alt_queries" (array of 2-4 strings), "vintage" ("yes", "no" or "unsure"), "era" (or null),
+        "vintage_clues" (or null).
+    """.trimIndent()
+
     fun userText(photoCount: Int, hint: String?): String = buildString {
         if (photoCount > 1) append("These $photoCount photos all show the same item (e.g. front, back, tag, label). ")
         append("Identify the item so a reseller can look up comparable listings.")

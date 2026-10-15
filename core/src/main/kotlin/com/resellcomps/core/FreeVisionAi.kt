@@ -55,7 +55,7 @@ class FreeVisionAi(
      */
     fun identify(photos: List<ByteArray>, hint: String? = null, onWait: (Int) -> Unit = {}): ItemIdentification =
         withWorkingModel(onWait) { model ->
-            val content = chat(model, IdentifyPrompt.SYSTEM + "\n\n" + JSON_INSTRUCTIONS, IdentifyPrompt.userText(photos.size, hint), photos, 1000)
+            val content = chat(model, IdentifyPrompt.SYSTEM + "\n\n" + IdentifyPrompt.JSON_REPLY, IdentifyPrompt.userText(photos.size, hint), photos, 1000)
             IdentifyPrompt.fromJson(extractJsonObject(content))
         }
 
@@ -122,7 +122,8 @@ class FreeVisionAi(
         }
     }
 
-    private class LimitException(msg: String, val waitSeconds: Double?) : IOException(msg)
+    /** The provider's free limit was hit (per minute, or the daily one if the wait is long). */
+    class LimitException(msg: String, val waitSeconds: Double?) : IOException(msg)
 
     /** The model is gone, or it can't take images: try the next one. */
     private class ModelUnusable(msg: String) : IOException(msg)
@@ -248,15 +249,6 @@ class FreeVisionAi(
             return if (mins >= 60) "${mins / 60} h ${mins % 60} min" else "${mins.coerceAtLeast(1)} min"
         }
 
-        private val JSON_INSTRUCTIONS = """
-            Reply with only a JSON object, no other text, with these keys in this order
-            (write tag_reading first, before deciding anything):
-            "tag_reading" (everything printed on the tags, or null if no tag is visible),
-            "identified" (true/false), "name", "brand" (or null), "model" (or null), "category",
-            "details", "search_query", "confidence" ("high", "medium" or "low"),
-            "alt_queries" (array of 2-4 strings), "vintage" ("yes", "no" or "unsure"), "era" (or null),
-            "vintage_clues" (or null).
-        """.trimIndent()
 
         fun detect(key: String): Provider? = when {
             key.startsWith("gsk_") -> Provider.GROQ
