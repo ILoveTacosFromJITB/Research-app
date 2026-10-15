@@ -99,6 +99,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** True when the free AI is set up, so "Dig deeper" can run. */
+    val canDigDeeper: Boolean get() = settings.freeAiKey.isNotBlank()
+
+    /**
+     * Second, tag-focused look at the vintage call. Keeps the user on the result screen:
+     * on failure the reason shows there instead of an error page.
+     */
+    fun digDeeper(item: ItemIdentification, currentQuery: String) {
+        val photos = _photos.value.takeIf { it.isNotEmpty() } ?: return
+        viewModelScope.launch {
+            _screen.value = Screen.Busy("Studying the tags…")
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    FreeVisionAi(settings.freeAiKey).digDeeper(photos.map { Images.shrink(it, 1280) }, item, currentQuery) { secs ->
+                        _screen.value = Screen.Busy("Free AI limit reached for this minute — continuing in ${secs}s…")
+                    }
+                }
+            }
+            _screen.value = Screen.Identified(
+                result.getOrElse { item.copy(searchQuery = currentQuery, warning = "Dig deeper didn't finish: ${describe(it)}") }
+            )
+        }
+    }
+
     fun reset() {
         _photos.value = emptyList()
         _screen.value = Screen.Home

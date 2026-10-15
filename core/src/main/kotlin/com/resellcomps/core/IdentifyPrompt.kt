@@ -30,6 +30,8 @@ object IdentifyPrompt {
           chain-stitched hems, selvedge denim, fading and cracking typical of age.
         - Prints and items: copyright dates on graphics, tour dates, old logos, discontinued
           models, packaging and fonts of an era, date codes on electronics and toys.
+        Before deciding, write out in tag_reading everything printed on the tags you can see.
+        Use the tag-dating rules of thumb below.
         Put the decade or year range in era (e.g. "1990s", "late 1980s", "2000s") and list the
         clues you actually saw in vintage_clues. If the clues aren't visible (for example no tag
         photo), answer "unsure" and say which photo would settle it; never call something
@@ -51,7 +53,7 @@ object IdentifyPrompt {
         era (only if it could plausibly be vintage), one more specific (exact line, colorway,
         model number or tag name), one with the name buyers commonly use, and one broader to find
         more results. Base them on what you see; don't invent details.
-    """.trimIndent()
+    """.trimIndent() + "\n\n" + TagExpert.DATING_GUIDE
 
     fun userText(photoCount: Int, hint: String?): String = buildString {
         if (photoCount > 1) append("These $photoCount photos all show the same item (e.g. front, back, tag, label). ")
@@ -73,6 +75,7 @@ object IdentifyPrompt {
             .mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.trim()?.lowercase() }
             .filter { it.isNotBlank() } - setOfNotNull(o.str("search_query")?.trim()?.lowercase()))
             .distinct().take(4),
+        tagReading = o.str("tag_reading"),
         vintage = o.str("vintage")?.lowercase()?.takeIf { it in setOf("yes", "no", "unsure") },
         era = o.str("era"),
         vintageClues = o.str("vintage_clues")

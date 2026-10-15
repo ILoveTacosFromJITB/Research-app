@@ -41,7 +41,24 @@ class FreeVisionAi(
      * @param onWait called with the seconds the app is pausing when the provider's
      *   per-minute free limit is hit, so the screen can say so instead of failing.
      */
-    fun identify(photos: List<ByteArray>, hint: String? = null, onWait: (Int) -> Unit = {}): ItemIdentification {
+    fun identify(photos: List<ByteArray>, hint: String? = null, onWait: (Int) -> Unit = {}): ItemIdentification =
+        withWorkingModel(onWait) { model ->
+            val content = chat(model, IdentifyPrompt.SYSTEM + "\n\n" + JSON_INSTRUCTIONS, IdentifyPrompt.userText(photos.size, hint), photos, 1000)
+            IdentifyPrompt.fromJson(extractJsonObject(content))
+        }
+
+    /**
+     * "Dig deeper": a second pass that only dates the tags, listing evidence for an older and a
+     * newer date before deciding. [currentQuery] is the search on screen, adjusted for the new call.
+     */
+    fun digDeeper(photos: List<ByteArray>, item: ItemIdentification, currentQuery: String, onWait: (Int) -> Unit = {}): ItemIdentification =
+        withWorkingModel(onWait) { model ->
+            val content = chat(model, TagExpert.SYSTEM, TagExpert.userText(item), photos, 1400)
+            TagExpert.apply(item, extractJsonObject(content), currentQuery)
+        }
+
+    /** Finds a model that reads photos (remembering it), and waits out per-minute limits. */
+    private fun <T> withWorkingModel(onWait: (Int) -> Unit, request: (String) -> T): T {
         val candidates = when (provider) {
             Provider.GROQ -> listOfNotNull(workingGroqModel) +
                 (rankedGroqModels ?: rankGroqModels(get("${provider.baseUrl}/models")).also { rankedGroqModels = it })
@@ -54,16 +71,14 @@ class FreeVisionAi(
         // order and remember the first that accepts the photo.
         for (model in candidates.take(MAX_TRIES)) {
             try {
-                val result = chatWaitingOutLimits(model, photos, hint, onWait)
+                val result = waitingOutLimits(onWait) { request(model) }
                 if (provider == Provider.GROQ) workingGroqModel = model
                 return result
             } catch (e: ModelUnusable) {
                 if (model == workingGroqModel) workingGroqModel = null
                 last = e
-            } catch (e: LimitException) {
-                // A long wait means the daily limit; other models share it, so stop here.
-                throw e
             }
+            // LimitException (a long wait = the daily limit, shared by all models) propagates.
         }
         throw last ?: IOException("${provider.label} didn't answer.")
     }
@@ -73,14 +88,14 @@ class FreeVisionAi(
      * second scan right after the first can be refused for a few seconds. Wait that out (up to
      * [MAX_WAIT_SECONDS] at a time, twice) rather than failing.
      */
-    private fun chatWaitingOutLimits(model: String, photos: List<ByteArray>, hint: String?, onWait: (Int) -> Unit): ItemIdentification {
+    private fun <T> waitingOutLimits(onWait: (Int) -> Unit, call: () -> T): T {
         var waits = 0
         while (true) {
             try {
                 return try {
-                    chat(model, photos, hint)
+                    call()
                 } catch (e: java.io.InterruptedIOException) {
-                    chat(model, photos, hint) // one retry on a slow reply
+                    call() // one retry on a slow reply
                 }
             } catch (e: LimitException) {
                 val wait = e.waitSeconds
@@ -98,20 +113,21 @@ class FreeVisionAi(
     /** The model is gone, or it can't take images: try the next one. */
     private class ModelUnusable(msg: String) : IOException(msg)
 
-    private fun chat(model: String, photos: List<ByteArray>, hint: String?): ItemIdentification {
+    /** One chat request with the photos; returns the reply text. */
+    private fun chat(model: String, system: String, userText: String, photos: List<ByteArray>, maxTokens: Int): String {
         val body = buildJsonObject {
             put("model", model)
             put("temperature", 0.2)
-            put("max_tokens", 800)
+            put("max_tokens", maxTokens)
             putJsonArray("messages") {
                 addJsonObject {
                     put("role", "system")
-                    put("content", IdentifyPrompt.SYSTEM + "\n\n" + JSON_INSTRUCTIONS)
+                    put("content", system)
                 }
                 addJsonObject {
                     put("role", "user")
                     putJsonArray("content") {
-                        addJsonObject { put("type", "text"); put("text", IdentifyPrompt.userText(photos.size, hint)) }
+                        addJsonObject { put("type", "text"); put("text", userText) }
                         photos.take(provider.maxImages).forEach { photo ->
                             addJsonObject {
                                 put("type", "image_url")
@@ -127,7 +143,7 @@ class FreeVisionAi(
         val req = Request.Builder()
             .url("${provider.baseUrl}/chat/completions")
             .post(body.toRequestBody("application/json".toMediaType()))
-        return parseAnswer(execute(req))
+        return contentOf(execute(req))
     }
 
     private fun get(url: String): String = execute(Request.Builder().url(url).get())
@@ -197,7 +213,9 @@ class FreeVisionAi(
         }
 
         private val JSON_INSTRUCTIONS = """
-            Reply with only a JSON object, no other text, with these keys:
+            Reply with only a JSON object, no other text, with these keys in this order
+            (write tag_reading first, before deciding anything):
+            "tag_reading" (everything printed on the tags, or null if no tag is visible),
             "identified" (true/false), "name", "brand" (or null), "model" (or null), "category",
             "details", "search_query", "confidence" ("high", "medium" or "low"),
             "alt_queries" (array of 2-4 strings), "vintage" ("yes", "no" or "unsure"), "era" (or null),
@@ -238,12 +256,14 @@ class FreeVisionAi(
             return ids.sortedWith(compareBy<String> { rank(it) }.thenByDescending { it })
         }
 
-        fun parseAnswer(body: String): ItemIdentification {
+        fun parseAnswer(body: String): ItemIdentification = IdentifyPrompt.fromJson(extractJsonObject(contentOf(body)))
+
+        /** The reply text from a chat-completions response. */
+        fun contentOf(body: String): String {
             val root = json.parseToJsonElement(body) as? JsonObject ?: throw IOException("Unreadable answer from the AI.")
             val message = ((root["choices"] as? JsonArray)?.firstOrNull() as? JsonObject)?.get("message") as? JsonObject
                 ?: throw IOException("The AI didn't answer.")
-            val content = (message["content"] as? JsonPrimitive)?.contentOrNull.orEmpty()
-            return IdentifyPrompt.fromJson(extractJsonObject(content))
+            return (message["content"] as? JsonPrimitive)?.contentOrNull.orEmpty()
         }
 
         /** Free models sometimes wrap the JSON in ```json fences or a sentence; take the outermost {...}. */

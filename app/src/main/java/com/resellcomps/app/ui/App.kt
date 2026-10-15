@@ -94,6 +94,7 @@ fun App(vm: MainViewModel) {
                         onRetake = vm::reset,
                         onAddPhoto = vm::backToPhotos,
                         onOpenSettings = { showSettings = true },
+                        onDigDeeper = if (vm.canDigDeeper) vm::digDeeper else null,
                         lensQuestion = vm.settings.lensQuestion,
                         onLensQuestionChange = { vm.settings.lensQuestion = it },
                     )

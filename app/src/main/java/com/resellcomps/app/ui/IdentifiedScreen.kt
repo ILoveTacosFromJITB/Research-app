@@ -77,6 +77,7 @@ fun IdentifiedScreen(
     onRetake: () -> Unit,
     onAddPhoto: () -> Unit,
     onOpenSettings: () -> Unit,
+    onDigDeeper: ((ItemIdentification, String) -> Unit)?,
     lensQuestion: String,
     onLensQuestionChange: (String) -> Unit,
 ) {
@@ -107,7 +108,7 @@ fun IdentifiedScreen(
             }
         }
 
-        if (!textMode && item.vintage != null) VintageCard(item)
+        if (!textMode && item.vintage != null) VintageCard(item, onDigDeeper?.let { dig -> { dig(item, q) } })
 
         if (!textMode && (!item.identified || q.isEmpty())) {
             Text(
@@ -232,20 +233,36 @@ fun IdentifiedScreen(
     }
 }
 
-/** The AI's vintage call, up front: yes (with era and clues), no, or unsure (add a tag photo). */
+/**
+ * The AI's vintage call, up front: yes (with era and clues), no, or unsure. "Dig deeper" runs a
+ * second, tag-focused look that weighs evidence for an older vs newer date.
+ */
 @Composable
-private fun VintageCard(item: ItemIdentification) {
+private fun VintageCard(item: ItemIdentification, onDigDeeper: (() -> Unit)?) {
+    var showWhy by rememberSaveable(item) { mutableStateOf(item.vintageReasoning != null) }
     val (title, color) = when (item.vintage) {
         "yes" -> ("Vintage: Yes" + (item.era?.let { ", $it" } ?: "")) to MaterialTheme.colorScheme.primaryContainer
         "no" -> ("Vintage: No" + (item.era?.let { " ($it)" } ?: "")) to MaterialTheme.colorScheme.surfaceVariant
         else -> "Vintage: Unsure" to MaterialTheme.colorScheme.tertiaryContainer
     }
     Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = color)) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             item.vintageClues?.let { Text("Based on: $it", style = MaterialTheme.typography.bodyMedium) }
             if (item.vintage == "unsure") {
                 Text("Add a clear photo of the tag (and the hem stitching) to settle it.", style = MaterialTheme.typography.bodySmall)
+            }
+            if (item.tagReading != null || item.vintageReasoning != null) {
+                TextButton(onClick = { showWhy = !showWhy }) { Text(if (showWhy) "Hide details" else "Why?") }
+                if (showWhy) {
+                    item.tagReading?.let { Text("On the tag: $it", style = MaterialTheme.typography.bodySmall) }
+                    item.vintageReasoning?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                }
+            }
+            if (onDigDeeper != null) {
+                OutlinedButton(onClick = onDigDeeper, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (item.vintageReasoning == null) "Dig deeper on the tag" else "Dig deeper again")
+                }
             }
         }
     }

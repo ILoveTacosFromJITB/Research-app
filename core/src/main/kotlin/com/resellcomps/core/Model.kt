@@ -20,6 +20,10 @@ data class ItemIdentification(
     val era: String? = null,
     /** What the vintage call is based on, e.g. "single-stitch hem, made in USA tag". */
     val vintageClues: String? = null,
+    /** Everything the AI read on the tags, written before it decided on vintage. */
+    val tagReading: String? = null,
+    /** The tag expert's side-by-side reasoning (older vs newer), from "Dig deeper". */
+    val vintageReasoning: String? = null,
     /** Shown prominently when the name came from a weak source. */
     val warning: String? = null,
 )
