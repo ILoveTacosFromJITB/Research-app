@@ -27,15 +27,27 @@ import java.util.Base64
  */
 class FreeVisionAi(
     private val apiKey: String,
-    private val http: OkHttpClient = Http.client,
+    /** Your own server (e.g. Ollama on a home PC); when set, it's used instead of the key's provider. */
+    serverUrl: String? = null,
+    http: OkHttpClient = Http.client,
 ) {
     enum class Provider(val label: String, val baseUrl: String, val maxImages: Int) {
         GROQ("Groq", "https://api.groq.com/openai/v1", 5),
         OPENROUTER("OpenRouter", "https://openrouter.ai/api/v1", 6),
+        SELF("Your server", "", 6),
     }
 
-    val provider: Provider = detect(apiKey)
+    /** Thrown when your own server doesn't answer (computer off or asleep), so the app can fall back. */
+    class ServerOffline(msg: String) : IOException(msg)
+
+    val provider: Provider = if (!serverUrl.isNullOrBlank()) Provider.SELF else detect(apiKey)
         ?: throw IOException("That key isn't a Groq key (starts with gsk_) or an OpenRouter key (starts with sk-or-).")
+
+    private val baseUrl: String = if (provider == Provider.SELF) normalizeServerUrl(serverUrl!!) else provider.baseUrl
+
+    // A sleeping home PC never answers, so give up on connecting quickly and fall back.
+    private val http: OkHttpClient =
+        if (provider == Provider.SELF) http.newBuilder().connectTimeout(4, java.util.concurrent.TimeUnit.SECONDS).build() else http
 
     /**
      * @param onWait called with the seconds the app is pausing when the provider's
@@ -59,11 +71,13 @@ class FreeVisionAi(
 
     /** Finds a model that reads photos (remembering it), and waits out per-minute limits. */
     private fun <T> withWorkingModel(onWait: (Int) -> Unit, request: (String) -> T): T {
+        val working = workingModels[baseUrl]
         val candidates = when (provider) {
-            Provider.GROQ -> listOfNotNull(workingGroqModel) +
-                (rankedGroqModels ?: rankGroqModels(get("${provider.baseUrl}/models")).also { rankedGroqModels = it })
-                    .filter { it != workingGroqModel }
             Provider.OPENROUTER -> listOf(OPENROUTER_FREE)
+            // Groq and your own server: rank the models they list, best photo readers first.
+            else -> listOfNotNull(working) +
+                (rankedModels[baseUrl] ?: rankGroqModels(get("$baseUrl/models")).also { rankedModels[baseUrl] = it })
+                    .filter { it != working }
         }
         if (candidates.isEmpty()) throw IOException("No AI model on your ${provider.label} account can read photos right now.")
         var last: IOException? = null
@@ -72,10 +86,10 @@ class FreeVisionAi(
         for (model in candidates.take(MAX_TRIES)) {
             try {
                 val result = waitingOutLimits(onWait) { request(model) }
-                if (provider == Provider.GROQ) workingGroqModel = model
+                workingModels[baseUrl] = model
                 return result
             } catch (e: ModelUnusable) {
-                if (model == workingGroqModel) workingGroqModel = null
+                if (model == workingModels[baseUrl]) workingModels.remove(baseUrl)
                 last = e
             }
             // LimitException (a long wait = the daily limit, shared by all models) propagates.
@@ -141,7 +155,7 @@ class FreeVisionAi(
             }
         }.toString()
         val req = Request.Builder()
-            .url("${provider.baseUrl}/chat/completions")
+            .url("$baseUrl/chat/completions")
             .post(body.toRequestBody("application/json".toMediaType()))
         return contentOf(execute(req))
     }
@@ -152,11 +166,20 @@ class FreeVisionAi(
         val call = req.header("Authorization", "Bearer $apiKey")
             .apply { if (provider == Provider.OPENROUTER) header("X-Title", "Resell Comps") }
             .build()
-        http.newCall(call).execute().use { resp ->
+        val response = try {
+            http.newCall(call).execute()
+        } catch (e: IOException) {
+            // Your own server: a refused/unreachable connection means the computer is off.
+            if (provider == Provider.SELF && isUnreachable(e)) {
+                throw ServerOffline("Your computer didn't answer (it may be off or asleep).")
+            }
+            throw e
+        }
+        response.use { resp ->
             val text = resp.body?.string().orEmpty()
             when {
                 resp.isSuccessful -> return text
-                resp.code == 401 -> throw IOException("${provider.label} rejected your key. Check it in Settings.")
+                resp.code == 401 -> throw IOException("${provider.label} rejected the key. Check it in Settings.")
                 resp.code == 429 -> {
                     val wait = retryAfterSeconds(resp.header("retry-after"), text)
                     throw LimitException(
@@ -184,15 +207,28 @@ class FreeVisionAi(
         /** OpenRouter's router that picks a free model supporting the request (images included). */
         const val OPENROUTER_FREE = "openrouter/free"
 
-        /** The Groq model that last accepted a photo, tried first next time. */
-        @Volatile private var workingGroqModel: String? = null
+        /** Per server: the model that last accepted a photo, tried first next time. */
+        private val workingModels = java.util.concurrent.ConcurrentHashMap<String, String>()
 
         private const val MAX_TRIES = 4
 
         /** Longest pause the app makes by itself for a per-minute limit. */
         const val MAX_WAIT_SECONDS = 45.0
 
-        @Volatile private var rankedGroqModels: List<String>? = null
+        private val rankedModels = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
+
+        /** "100.1.2.3:11434" or "http://pc:11434/" → "http://100.1.2.3:11434/v1" (Ollama's OpenAI-style API). */
+        fun normalizeServerUrl(url: String): String {
+            var u = url.trim().trimEnd('/')
+            if (!u.startsWith("http://") && !u.startsWith("https://")) u = "http://$u"
+            if (!u.endsWith("/v1")) u = "$u/v1"
+            return u
+        }
+
+        private fun isUnreachable(e: Throwable): Boolean = generateSequence(e) { it.cause }.any {
+            it is java.net.ConnectException || it is java.net.NoRouteToHostException ||
+                it is java.net.UnknownHostException || it is java.net.SocketTimeoutException
+        }
 
         /**
          * How long the provider asks us to wait: the Retry-After header, or Groq's
@@ -246,7 +282,7 @@ class FreeVisionAi(
                 .filter { id -> NOT_VISION.none { it in id.lowercase() } }
             fun rank(id: String): Int = id.lowercase().let { m ->
                 when {
-                    "vision" in m || "-vl" in m || "llama-4" in m -> 0
+                    "vision" in m || "vl" in m || "llama-4" in m || "minicpm-v" in m || "llava" in m -> 0
                     "qwen" in m -> 1
                     "gemma" in m || "pixtral" in m || "llava" in m -> 2
                     else -> 3

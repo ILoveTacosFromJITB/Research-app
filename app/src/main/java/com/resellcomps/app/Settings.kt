@@ -16,6 +16,11 @@ class Settings(context: Context) {
         get() = prefs.getString("lens_question", "").orEmpty()
         set(v) = prefs.edit().putString("lens_question", v).apply()
 
+    /** Your own AI server (e.g. Ollama on a home PC via Tailscale); empty = not used. */
+    var serverUrl: String
+        get() = prefs.getString("server_url", "").orEmpty()
+        set(v) = prefs.edit().putString("server_url", v.trim()).apply()
+
     /** Run "Dig deeper on the tag" automatically after each scan that shows a tag. */
     var autoDigDeeper: Boolean
         get() = prefs.getBoolean("auto_dig_deeper", true)

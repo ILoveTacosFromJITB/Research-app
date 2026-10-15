@@ -84,11 +84,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _screen.value = Screen.Busy("Identifying the item…")
             runCatching {
-                if (settings.freeAiKey.isNotBlank()) {
+                if (hasAi) {
                     // Free AI (Groq or OpenRouter, detected from the key).
                     withContext(Dispatchers.IO) {
-                        FreeVisionAi(settings.freeAiKey).identify(photos.map { Images.shrink(it) }, hint) { secs ->
-                            _screen.value = Screen.Busy("Free AI limit reached for this minute — continuing in ${secs}s…")
+                        withAi { ai ->
+                            ai.identify(photos.map { Images.shrink(it) }, hint) { secs ->
+                                _screen.value = Screen.Busy("Free AI limit reached for this minute — continuing in ${secs}s…")
+                            }
                         }
                     }
                 } else {
@@ -106,8 +108,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         _screen.value = Screen.Busy("Checking the tag closely…")
                         val deeper = runCatching {
                             withContext(Dispatchers.IO) {
-                                FreeVisionAi(settings.freeAiKey).digDeeper(photos.map { Images.shrink(it, 1280) }, first, first.searchQuery) { secs ->
-                                    _screen.value = Screen.Busy("Free AI limit reached for this minute — continuing in ${secs}s…")
+                                withAi { ai ->
+                                    ai.digDeeper(photos.map { Images.shrink(it, 1280) }, first, first.searchQuery) { secs ->
+                                        _screen.value = Screen.Busy("Free AI limit reached for this minute — continuing in ${secs}s…")
+                                    }
                                 }
                             }
                         }
@@ -126,11 +130,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * may be vintage. Items without tags (media, electronics) skip it and stay fast.
      */
     private fun shouldAutoDigDeeper(item: ItemIdentification): Boolean =
-        settings.autoDigDeeper && settings.freeAiKey.isNotBlank() &&
+        settings.autoDigDeeper && hasAi &&
             (item.tagReading != null || item.vintage == "yes" || item.vintage == "unsure")
 
     /** True when the free AI is set up, so "Dig deeper" can run. */
-    val canDigDeeper: Boolean get() = settings.freeAiKey.isNotBlank()
+    val canDigDeeper: Boolean get() = hasAi
+
+    /** An AI is set up: your own server and/or a Groq/OpenRouter key. */
+    private val hasAi: Boolean get() = settings.serverUrl.isNotBlank() || settings.freeAiKey.isNotBlank()
+
+    /**
+     * Runs [request] on your own server when one is set, falling back to the Groq/OpenRouter key
+     * when the computer is off. Runs on the calling (IO) thread.
+     */
+    private fun <T> withAi(request: (FreeVisionAi) -> T): T {
+        val server = settings.serverUrl.trim()
+        if (server.isNotEmpty()) {
+            try {
+                return request(FreeVisionAi("", server))
+            } catch (e: FreeVisionAi.ServerOffline) {
+                if (settings.freeAiKey.isBlank()) {
+                    throw java.io.IOException("Your computer is off or asleep, and there's no Groq/OpenRouter key to fall back on.")
+                }
+                val provider = FreeVisionAi.detect(settings.freeAiKey)?.label ?: "the backup key"
+                _screen.value = Screen.Busy("Your computer is off — using $provider…")
+            }
+        }
+        return request(FreeVisionAi(settings.freeAiKey))
+    }
 
     /**
      * Second, tag-focused look at the vintage call. Keeps the user on the result screen:
@@ -142,8 +169,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _screen.value = Screen.Busy("Studying the tags…")
             val result = runCatching {
                 withContext(Dispatchers.IO) {
-                    FreeVisionAi(settings.freeAiKey).digDeeper(photos.map { Images.shrink(it, 1280) }, item, currentQuery) { secs ->
-                        _screen.value = Screen.Busy("Free AI limit reached for this minute — continuing in ${secs}s…")
+                    withAi { ai ->
+                        ai.digDeeper(photos.map { Images.shrink(it, 1280) }, item, currentQuery) { secs ->
+                            _screen.value = Screen.Busy("Free AI limit reached for this minute — continuing in ${secs}s…")
+                        }
                     }
                 }
             }

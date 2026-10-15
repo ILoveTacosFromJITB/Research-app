@@ -142,6 +142,7 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
     val st = vm.settings
     var freeAiKey by remember { mutableStateOf(st.freeAiKey) }
     var autoDig by remember { mutableStateOf(st.autoDigDeeper) }
+    var serverUrl by remember { mutableStateOf(st.serverUrl) }
 
     Column(
         modifier.verticalScroll(rememberScrollState()).padding(16.dp),
@@ -159,6 +160,17 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
             value = freeAiKey, onValueChange = { freeAiKey = it },
             label = { Text("Groq or OpenRouter key") }, singleLine = true,
             visualTransformation = PasswordVisualTransformation(),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Text("My own AI server (optional)", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Your computer running Ollama, reached through Tailscale. Used first when it's on — unlimited " +
+                "and private; when it's off, the key above is used automatically.",
+            style = MaterialTheme.typography.bodySmall,
+        )
+        OutlinedTextField(
+            value = serverUrl, onValueChange = { serverUrl = it },
+            label = { Text("Server address, e.g. 100.101.102.103:11434") }, singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -181,6 +193,7 @@ private fun SettingsScreen(vm: MainViewModel, modifier: Modifier, onDone: () -> 
             onClick = {
                 st.freeAiKey = freeAiKey
                 st.autoDigDeeper = autoDig
+                st.serverUrl = serverUrl
                 st.seenSettings = true
                 onDone()
             },

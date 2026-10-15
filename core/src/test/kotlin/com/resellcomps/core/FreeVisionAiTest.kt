@@ -76,4 +76,21 @@ class FreeVisionAiTest {
             FreeVisionAi.parseAnswer(body).altQueries,
         )
     }
+
+    @Test fun ownServerAddressIsNormalized() {
+        assertEquals("http://100.64.1.2:11434/v1", FreeVisionAi.normalizeServerUrl("100.64.1.2:11434"))
+        assertEquals("http://my-pc:11434/v1", FreeVisionAi.normalizeServerUrl(" http://my-pc:11434/ "))
+        assertEquals("https://pc.tailnet.ts.net/v1", FreeVisionAi.normalizeServerUrl("https://pc.tailnet.ts.net/v1"))
+        assertEquals(FreeVisionAi.Provider.SELF, FreeVisionAi("", "100.64.1.2:11434").provider)
+    }
+
+    @Test fun ranksOllamaVisionModelsFirst() {
+        val body = """{"data":[{"id":"llama3.1:8b"},{"id":"qwen2.5vl:7b"},{"id":"nomic-embed-text"},{"id":"gemma3:12b"}]}"""
+        assertEquals(listOf("qwen2.5vl:7b", "gemma3:12b", "llama3.1:8b"), FreeVisionAi.rankGroqModels(body))
+    }
+
+    @Test fun unreachableOwnServerIsReportedAsOffline() {
+        val ai = FreeVisionAi("", "127.0.0.1:9")  // nothing listens on port 9
+        assertFailsWith<FreeVisionAi.ServerOffline> { ai.identify(listOf(ByteArray(10))) }
+    }
 }
