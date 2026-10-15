@@ -29,9 +29,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
 
     buildFeatures {
         compose = true
@@ -79,4 +76,10 @@ dependencies {
 
     // On-phone AI backup: Gemini Nano through Android's AICore (ML Kit GenAI Prompt API)
     implementation("com.google.mlkit:genai-prompt:1.0.0-beta4")
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
 }
