@@ -27,4 +27,10 @@ class TagGuideTest {
             assertTrue(b.aliases.all { it == it.lowercase() }, b.name)
         }
     }
+
+    @Test fun findsTheNewLabelBrands() {
+        assertEquals(listOf("Towncraft (JCPenney)"), TagGuide.matching("Towncraft flannel shirt").map { it.name })
+        assertEquals(listOf("Polo Ralph Lauren"), TagGuide.matching("Polo by Ralph Lauren oxford").map { it.name })
+        assertEquals(listOf("Levi's"), TagGuide.matching(null, "LEVI'S 501, care tag 0594").map { it.name })
+    }
 }

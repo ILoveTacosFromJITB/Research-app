@@ -197,12 +197,19 @@ object TagGuide {
         Brand(
             "Levi's", listOf("levi", "levis", "levi's"), "Denim",
             listOf(
-                Era("Before 1971", "\"Big E\" — LEVI'S in all capitals on the red tab."),
-                Era("1971+", "\"Small e\" — Levi's on the red tab; orange tabs are common in the 1970s."),
-                Era("Before mid-1980s", "Selvedge (redline) denim on 501s."),
-                Era("Until about 2003", "Made in USA (the last US plants closed then)."),
+                Era("1936–1971", "Red tab says LEVI'S with a capital E (\"Big E\"); after 1971 it's a lowercase \"Levi's\" (\"small e\")."),
+                Era("Mid-1960s and earlier", "\"501XX\" in big letters on the back patch (the XX was dropped around the mid-to-late 60s)."),
+                Era("Before about 1983", "Selvedge (redline) denim on 501s — a clean edge with a red thread line inside the outseam."),
+                Era("1970s–1992", "Care tag code: a month digit plus ONE year digit plus a factory number, so a \"7\" can mean 1977 or 1987 — use construction to pick the decade."),
+                Era("1993+", "Care tag code is four digits, month then year: \"0594\" = May 1994, \"1196\" = November 1996."),
+                Era("Until about 2003", "Made in USA (Levi's last US plants closed then)."),
             ),
-            listOf("Big E means pre-1971; Levi's makes reissues, so check care tags and construction."),
+            listOf(
+                "The number stamped inside the top button is the factory, not the date; it should match the factory number on the care tag.",
+                "Button 555 = the Valencia Street plant in San Francisco (open until 2002) — it appears on 80s and 90s pairs too, and on reissues.",
+                "Levi's makes reissues (LVC) of Big E and 501XX styles, so check care tags and construction.",
+            ),
+            source = "Levi's dating guides (California Vintage Buyers, Flying Apple Vintage, JeansZa, Rope Dye) — dates vary slightly between sources",
         ),
         Brand(
             "Lee / Wrangler", listOf("lee", "wrangler"), "Denim",
@@ -227,9 +234,38 @@ object TagGuide {
             ),
         ),
         Brand(
-            "Polo Ralph Lauren / Tommy Hilfiger / Nautica", listOf("polo", "ralph lauren", "tommy", "hilfiger", "nautica"), "Designer",
-            listOf(Era("1990s", "Peak era for logo pieces: Polo Sport (from 1993), Tommy flag logos and Tommy Jeans, Nautica Competition.")),
+            "Polo Ralph Lauren", listOf("polo ralph lauren", "ralph lauren", "polo by ralph lauren", "polo sport", "rrl", "polo"), "Designer",
+            listOf(
+                Era("1970s", "Small, simple labels focused on the name; the polo player logo starts appearing."),
+                Era("1980s", "Larger labels with more information (fabric, care); many Made in USA; Hong Kong-made pieces are mostly 80s–90s."),
+                Era("1990s–early 2000s", "Most common vintage finds; mainline labels on navy or green backgrounds; Polo Sport from 1993; logo-heavy pieces peak."),
+                Era("2000s+", "Sri Lanka, Indonesia and China production becomes the norm."),
+                Era("2010s+", "New label font; many labels printed instead of sewn."),
+            ),
+            listOf(
+                "\"Made in USA\" on Polo is almost always vintage.",
+                "Value comes from the line and logo (Polo Sport, Polo Bear, big logos, Stadium, RRL) as much as age.",
+            ),
+            source = "Vintage Polo Ralph Lauren tag guides (Vintage Rare USA, WEAR2AM, Watch and Gather, Vintage Clothing Guides) — label details vary between sources",
+        ),
+        Brand(
+            "Tommy Hilfiger / Nautica", listOf("tommy", "hilfiger", "nautica"), "Designer",
+            listOf(Era("1990s", "Peak era for logo pieces: Tommy flag logos and Tommy Jeans, Nautica Competition.")),
             listOf("For these, era comes more from logo style and the line name than from country of origin."),
+        ),
+        Brand(
+            "Towncraft (JCPenney)", listOf("towncraft", "penney", "penneys", "jcpenney", "jc penney"), "Department store",
+            listOf(
+                Era("Before 1963", "\"PENNEY'S\" in capitals with an apostrophe."),
+                Era("1963–1971", "\"Penneys\" with the \"atomic P\" logo."),
+                Era("1971+", "\"JCPenney\" with the JC added back."),
+                Era("1960s–1980s", "Towncraft tees, plaid and western shirts; Towncraft kept using very similar tags into the 1980s."),
+            ),
+            listOf(
+                "A Towncraft tag alone doesn't pin the year — check the store name spelling, care tag, stitching and fabric too.",
+                "Collectors compare Towncraft labels against the Vintage Fashion Guild label resource.",
+            ),
+            source = "Defunkd forum threads on Towncraft labels and JCPenney label histories — community knowledge, not official records",
         ),
         Brand(
             "Band / concert tee tags", listOf("brockum", "giant", "winterland", "tennessee river", "stanley desantis"), "Band tees",
