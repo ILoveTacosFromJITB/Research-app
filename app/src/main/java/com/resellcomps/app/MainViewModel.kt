@@ -17,7 +17,8 @@ import kotlinx.coroutines.withContext
 sealed interface Screen {
     data object Home : Screen
     data class Busy(val message: String) : Screen
-    data class Identified(val item: ItemIdentification) : Screen
+    /** [tagCheck] is the progress of the tag check still running in the background, if any. */
+    data class Identified(val item: ItemIdentification, val tagCheck: String? = null) : Screen
     data class Failed(val message: String, val canRetryIdentify: Boolean) : Screen
 }
 
@@ -97,10 +98,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
                 .onSuccess { first ->
                     if (shouldAutoDigDeeper(first)) {
-                        _screen.value = Screen.Busy("Checking the tag closely…")
-                        val deeper = runCatching { digDeeperWithAi(photos, first, first.searchQuery) }
-                        // If the second look fails, the first answer still stands.
-                        _screen.value = Screen.Identified(deeper.getOrDefault(first))
+                        // Show the result and search buttons now; the tag check finishes on the same
+                        // screen. Two photo requests back to back often hit the free per-minute limit,
+                        // so the wait happens here instead of on a blank loading screen.
+                        _screen.value = Screen.Identified(first, tagCheck = "Checking the tag closely…")
+                        val status: (String) -> Unit = { msg ->
+                            val now = _screen.value
+                            if (now is Screen.Identified && now.item === first) _screen.value = now.copy(tagCheck = msg)
+                        }
+                        val deeper = runCatching { digDeeperWithAi(photos, first, first.searchQuery, status) }
+                        // If the second look fails, the first answer still stands. If the user moved
+                        // on (new item, back to photos) meanwhile, drop the late answer.
+                        if ((_screen.value as? Screen.Identified)?.item === first) {
+                            _screen.value = Screen.Identified(deeper.getOrDefault(first))
+                        }
                     } else {
                         _screen.value = Screen.Identified(first)
                     }
@@ -119,15 +130,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
-    private suspend fun digDeeperWithAi(photos: List<ByteArray>, item: ItemIdentification, query: String): ItemIdentification =
+    /** [status] shows progress: the loading screen by default, or a line under the result. */
+    private suspend fun digDeeperWithAi(
+        photos: List<ByteArray>, item: ItemIdentification, query: String,
+        status: (String) -> Unit = ::showProgress,
+    ): ItemIdentification =
         runAi(
-            cloud = { ai -> ai.digDeeper(photos.map { Images.shrink(it, 1280) }, item, query, ::showLimitWait) },
-            phone = { ai -> ai.digDeeper(photos, item, query, ::showProgress) },
+            cloud = { ai -> ai.digDeeper(photos.map { Images.shrink(it) }, item, query) { secs -> status(limitWait(secs)) } },
+            phone = { ai -> ai.digDeeper(photos, item, query, status) },
+            status = status,
         )
 
-    private fun showLimitWait(secs: Int) {
-        _screen.value = Screen.Busy("Free AI limit reached for this minute — continuing in ${secs}s…")
-    }
+    private fun limitWait(secs: Int) = "Free AI limit reached for this minute — continuing in ${secs}s…"
+
+    private fun showLimitWait(secs: Int) = showProgress(limitWait(secs))
 
     private fun showProgress(message: String) {
         _screen.value = Screen.Busy(message)
@@ -143,14 +159,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * Cloud first (your server, then the Groq/OpenRouter key). When the free limit is used up,
      * there's no signal, or no cloud AI is set up, the on-phone AI takes over (if turned on).
      */
-    private suspend fun <T> runAi(cloud: (FreeVisionAi) -> T, phone: suspend (OnPhoneAi) -> T): T {
+    private suspend fun <T> runAi(
+        cloud: (FreeVisionAi) -> T,
+        phone: suspend (OnPhoneAi) -> T,
+        status: (String) -> Unit = ::showProgress,
+    ): T {
         if (hasCloud) {
             try {
-                return withContext(Dispatchers.IO) { withAi(cloud) }
+                return withContext(Dispatchers.IO) { withAi(status, cloud) }
             } catch (e: Exception) {
                 val reason = phoneFallbackReason(e)
                 if (!settings.phoneAi || reason == null) throw e
-                _screen.value = Screen.Busy(reason)
+                status(reason)
             }
         }
         return phone(onPhoneAi)
@@ -190,7 +210,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * Runs [request] on your own server when one is set, falling back to the Groq/OpenRouter key
      * when the computer is off. Runs on the calling (IO) thread.
      */
-    private fun <T> withAi(request: (FreeVisionAi) -> T): T {
+    private fun <T> withAi(status: (String) -> Unit, request: (FreeVisionAi) -> T): T {
         val server = settings.serverUrl.trim()
         if (server.isNotEmpty()) {
             try {
@@ -200,7 +220,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     throw FreeVisionAi.ServerOffline("Your computer is off or asleep, and there's no Groq/OpenRouter key to fall back on.")
                 }
                 val provider = FreeVisionAi.detect(settings.freeAiKey)?.label ?: "the backup key"
-                _screen.value = Screen.Busy("Your computer is off — using $provider…")
+                status("Your computer is off — using $provider…")
             }
         }
         return request(FreeVisionAi(settings.freeAiKey))

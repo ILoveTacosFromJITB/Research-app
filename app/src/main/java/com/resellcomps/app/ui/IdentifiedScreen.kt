@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Card
@@ -38,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
@@ -75,6 +77,8 @@ fun IdentifiedScreen(
     item: ItemIdentification,
     photos: List<ByteArray>,
     modifier: Modifier,
+    /** Progress of the tag check running behind this screen, or null when it's done. */
+    tagCheck: String? = null,
     onRetake: () -> Unit,
     onAddPhoto: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -109,7 +113,16 @@ fun IdentifiedScreen(
             }
         }
 
-        if (!textMode && item.vintage != null) VintageCard(item, onDigDeeper?.let { dig -> { dig(item, q) } })
+        tagCheck?.let { status ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                Text(status, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+
+        if (!textMode && item.vintage != null) {
+            VintageCard(item, onDigDeeper?.takeIf { tagCheck == null }?.let { dig -> { dig(item, q) } })
+        }
 
         if (!textMode && (!item.identified || q.isEmpty())) {
             Text(

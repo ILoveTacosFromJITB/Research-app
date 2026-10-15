@@ -107,6 +107,7 @@ fun App(vm: MainViewModel) {
                     is Screen.Busy -> BusyScreen(s.message, modifier)
                     is Screen.Identified -> IdentifiedScreen(
                         s.item, photos, modifier,
+                        tagCheck = s.tagCheck,
                         onRetake = vm::reset,
                         onAddPhoto = vm::backToPhotos,
                         onOpenSettings = { showSettings = true },
