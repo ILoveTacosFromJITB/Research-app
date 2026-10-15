@@ -35,15 +35,27 @@ jobs:
           name: ResellComps-apk
           path: ResellComps.apk
 
+      # Replace the previous build's release so the new one is dated today and listed at the top.
+      - name: Remove previous build release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release delete "latest-${{ github.ref_name }}" --cleanup-tag --yes || true
+
+      - name: Build date
+        id: date
+        run: echo "stamp=$(date -u '+%b %d, %H:%M UTC')" >> "$GITHUB_OUTPUT"
+
       # A downloadable "latest" release so the APK can be grabbed straight from a phone browser.
       - name: Publish latest build
         if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest-${{ github.ref_name }}
-          name: Latest build (${{ github.ref_name }})
-          prerelease: true
-          make_latest: false
+          target_commitish: ${{ github.sha }}
+          name: Resell Comps — newest build (${{ steps.date.outputs.stamp }})
+          prerelease: false
+          make_latest: true
           files: ResellComps.apk
           body: |
             Built from ${{ github.sha }}.
